@@ -11,8 +11,23 @@ class AppStrings {
   static const String resend = 'Resend';
   static const String verifyOTP = 'Verify OTP';
   static const String pleaseEnterPhoneNumber = 'Please enter your phone number';
+  static const String otpSent = 'OTP sent';
+  static const String pleaseRequestOtpAgain = 'Please request OTP again';
   static const String termsAndPrivacy =
       'By continuing you agree to\nTerms of Service and Privacy Policy';
+
+  // Base URL / API settings
+  static const String baseUrlSettingsTitle = 'API Base URL';
+  static const String baseUrlSettingsSubtitle =
+      'Choose or enter the server URL for API calls.';
+  static const String baseUrlOptionLocalhost = 'Localhost (http://localhost:8080)';
+  static const String baseUrlOptionRailway =
+      'Railway (https://todone-todone.up.railway.app)';
+  static const String baseUrlOptionCustom = 'Custom';
+  static const String baseUrlHint = 'https://your-api.com';
+  static const String baseUrlPleaseEnter = 'Please enter a URL';
+  static const String save = 'Save';
+  static const String baseUrlSaved = 'Base URL saved';
 
   // Dashboard
   static const String goodMorning = 'Good Morning';

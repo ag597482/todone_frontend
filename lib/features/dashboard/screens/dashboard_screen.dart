@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:todone_frontend/core/constants/index.dart';
-import 'package:todone_frontend/core/routes/index.dart';
+import 'package:todone_frontend/routes/index.dart';
 import '../widgets/index.dart';
 
 class DashboardScreen extends StatefulWidget {

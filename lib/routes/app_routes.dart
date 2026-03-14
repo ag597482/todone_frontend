@@ -3,6 +3,7 @@ import 'package:todone_frontend/features/auth/screens/index.dart';
 import 'package:todone_frontend/features/dashboard/screens/index.dart';
 import 'package:todone_frontend/features/notification/screens/index.dart';
 import 'package:todone_frontend/features/profile/screens/index.dart';
+import 'package:todone_frontend/features/settings/screens/index.dart';
 import 'package:todone_frontend/features/task/screens/index.dart';
 
 /// Arguments for navigating to [TaskDetailScreen].
@@ -31,6 +32,7 @@ abstract class AppRoutes {
   static const String notification = '/notification';
   static const String profile = '/profile';
   static const String taskDetail = '/task-detail';
+  static const String baseUrlSettings = '/settings/base-url';
 
   static Route<dynamic>? onGenerateRoute(RouteSettings settings) {
     switch (settings.name) {
@@ -71,6 +73,11 @@ abstract class AppRoutes {
             dueDate: args.dueDate,
             reminderTime: args.reminderTime,
           ),
+        );
+      case baseUrlSettings:
+        return MaterialPageRoute<void>(
+          settings: settings,
+          builder: (_) => const BaseUrlScreen(),
         );
       default:
         return null;

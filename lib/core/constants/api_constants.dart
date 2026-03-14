@@ -1,8 +1,15 @@
 class ApiConstants {
-  // Base URL
-  static const String baseUrl = 'https://api.todone.app/v1';
+  // Default base URL when none is stored (used by BaseUrlService)
+  static const String defaultBaseUrl = 'https://todone-todone.up.railway.app';
 
-  // Endpoints - Auth
+  // Fallback / legacy (prefer defaultBaseUrl + BaseUrlService for runtime URL)
+  static const String baseUrl = 'http://localhost:8080';
+
+  // Auth - login flow
+  static const String loginInitiatePath = '/api/auth/login/initiate';
+  static const String loginVerifyPath = '/api/auth/login/verify';
+
+  // Endpoints - Auth (legacy, if needed)
   static const String sendOTPEndpoint = '/auth/send-otp';
   static const String verifyOTPEndpoint = '/auth/verify-otp';
   static const String loginEndpoint = '/auth/login';

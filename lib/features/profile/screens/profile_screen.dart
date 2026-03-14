@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:todone_frontend/core/constants/index.dart';
-import 'package:todone_frontend/core/routes/index.dart';
+import 'package:todone_frontend/core/service/index.dart';
+import 'package:todone_frontend/routes/index.dart';
 import 'package:todone_frontend/core/theme/theme_mode_notifier.dart';
 import 'package:todone_frontend/features/profile/widgets/index.dart';
 
@@ -241,7 +242,9 @@ class ProfileScreen extends StatelessWidget {
             SizedBox(
               width: double.infinity,
               child: OutlinedButton.icon(
-                onPressed: () {
+                onPressed: () async {
+                  await UserStorageService().clearUser();
+                  if (!context.mounted) return;
                   Navigator.of(context).pushNamedAndRemoveUntil(
                     AppRoutes.auth,
                     (route) => false,

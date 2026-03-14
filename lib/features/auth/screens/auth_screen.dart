@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:todone_frontend/core/constants/index.dart';
-import 'package:todone_frontend/core/routes/index.dart';
+import 'package:todone_frontend/core/service/index.dart';
+import 'package:todone_frontend/routes/index.dart';
 import '../widgets/index.dart';
 
 class AuthScreen extends StatefulWidget {
@@ -20,6 +21,11 @@ class _AuthScreenState extends State<AuthScreen> {
 
   bool _isOTPVisible = false;
   bool _isOTPComplete = false;
+  String? _sessionId;
+  bool _isSendingOtp = false;
+  bool _isVerifying = false;
+
+  final AuthService _authService = AuthService();
 
   @override
   void initState() {
@@ -48,23 +54,64 @@ class _AuthScreenState extends State<AuthScreen> {
     });
   }
 
-  void _sendOTP() {
-    if (_phoneController.text.isEmpty) {
+  Future<void> _sendOTP() async {
+    if (_phoneController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text(AppStrings.pleaseEnterPhoneNumber)),
       );
       return;
     }
-    setState(() {
-      _isOTPVisible = true;
-    });
+    final fullPhoneNumber =
+        '${AppStrings.defaultCountryCode}${_phoneController.text.trim()}';
+
+    setState(() => _isSendingOtp = true);
+
+    final result = await _authService.loginInitiate(fullPhoneNumber);
+
+    if (!mounted) return;
+    setState(() => _isSendingOtp = false);
+
+    switch (result) {
+      case ApiSuccess(data: final data):
+        _sessionId = data.sessionId;
+        setState(() => _isOTPVisible = true);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text(AppStrings.otpSent)),
+        );
+      case ApiFailure(message: final message):
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(message)),
+        );
+    }
   }
 
-  void _verifyOTP() {
-    final otp =
-        _otpFields.map((field) => field.text).join();
-    if (otp.length == 4) {
-      Navigator.of(context).pushReplacementNamed(AppRoutes.dashboard);
+  Future<void> _verifyOTP() async {
+    final otp = _otpFields.map((field) => field.text).join();
+    if (otp.length != 4) return;
+
+    if (_sessionId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text(AppStrings.pleaseRequestOtpAgain)),
+      );
+      return;
+    }
+
+    setState(() => _isVerifying = true);
+
+    final result = await _authService.loginVerify(_sessionId!, otp);
+
+    if (!mounted) return;
+    setState(() => _isVerifying = false);
+
+    switch (result) {
+      case ApiSuccess(data: final data):
+        await UserStorageService().saveUser(data);
+        if (!mounted) return;
+        Navigator.of(context).pushReplacementNamed(AppRoutes.dashboard);
+      case ApiFailure(message: final message):
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(message)),
+        );
     }
   }
 
@@ -97,23 +144,30 @@ class _AuthScreenState extends State<AuthScreen> {
                     padding: const EdgeInsets.fromLTRB(32, 48, 32, 32),
                     child: Column(
                       children: [
-                        Container(
-                          width: 80,
-                          height: 80,
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF4F46E5),
-                            borderRadius: BorderRadius.circular(16),
-                            boxShadow: [
-                              BoxShadow(
-                                color: const Color(0xFF4F46E5).withOpacity(0.3),
-                                blurRadius: 24,
-                              ),
-                            ],
-                          ),
-                          child: const Icon(
-                            Icons.check_circle,
-                            color: Colors.white,
-                            size: 48,
+                        GestureDetector(
+                          onLongPress: () {
+                            Navigator.of(context)
+                                .pushNamed(AppRoutes.baseUrlSettings);
+                          },
+                          child: Container(
+                            width: 80,
+                            height: 80,
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF4F46E5),
+                              borderRadius: BorderRadius.circular(16),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: const Color(0xFF4F46E5)
+                                      .withOpacity(0.3),
+                                  blurRadius: 24,
+                                ),
+                              ],
+                            ),
+                            child: const Icon(
+                              Icons.check_circle,
+                              color: Colors.white,
+                              size: 48,
+                            ),
                           ),
                         ),
                         const SizedBox(height: 24),
@@ -226,7 +280,7 @@ class _AuthScreenState extends State<AuthScreen> {
                         SizedBox(
                           width: double.infinity,
                           child: ElevatedButton(
-                            onPressed: _sendOTP,
+                            onPressed: _isSendingOtp ? null : _sendOTP,
                             style: ElevatedButton.styleFrom(
                               backgroundColor: const Color(0xFF4F46E5),
                               padding: const EdgeInsets.symmetric(vertical: 16),
@@ -237,14 +291,23 @@ class _AuthScreenState extends State<AuthScreen> {
                               shadowColor:
                                   const Color(0xFF4F46E5).withOpacity(0.3),
                             ),
-                            child: Text(
-                              AppStrings.sendOTP,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
+                            child: _isSendingOtp
+                                ? const SizedBox(
+                                    height: 20,
+                                    width: 20,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: Colors.white,
+                                    ),
+                                  )
+                                : Text(
+                                    AppStrings.sendOTP,
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
                           ),
                         ),
                         const SizedBox(height: 32),
@@ -299,7 +362,8 @@ class _AuthScreenState extends State<AuthScreen> {
                                             .titleLarge,
                                       ),
                                       TextButton(
-                                        onPressed: _sendOTP,
+                                        onPressed:
+                                            _isSendingOtp ? null : _sendOTP,
                                         child: Text(
                                           AppStrings.resend,
                                           style: const TextStyle(
@@ -333,7 +397,9 @@ class _AuthScreenState extends State<AuthScreen> {
                               SizedBox(
                                 width: double.infinity,
                                 child: ElevatedButton(
-                                  onPressed: _isOTPComplete ? _verifyOTP : null,
+                                  onPressed: (_isOTPComplete && !_isVerifying)
+                                      ? _verifyOTP
+                                      : null,
                                   style: ElevatedButton.styleFrom(
                                     backgroundColor: _isOTPComplete
                                         ? const Color(0xFF4F46E5)
@@ -347,14 +413,23 @@ class _AuthScreenState extends State<AuthScreen> {
                                     shadowColor:
                                         const Color(0xFF4F46E5).withOpacity(0.3),
                                   ),
-                                  child: Text(
-                                    AppStrings.verifyOTP,
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
+                                  child: _isVerifying
+                                      ? const SizedBox(
+                                          height: 20,
+                                          width: 20,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2,
+                                            color: Colors.white,
+                                          ),
+                                        )
+                                      : Text(
+                                          AppStrings.verifyOTP,
+                                          style: const TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
                                 ),
                               ),
                             ],

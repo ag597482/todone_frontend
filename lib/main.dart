@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:todone_frontend/core/constants/index.dart';
-import 'package:todone_frontend/core/routes/index.dart';
+import 'package:todone_frontend/features/auth/screens/auth_gate_screen.dart';
+import 'package:todone_frontend/routes/index.dart';
 import 'package:todone_frontend/core/theme/theme_mode_notifier.dart';
 
 void main() async {
@@ -27,7 +28,7 @@ class MainApp extends StatelessWidget {
             darkTheme: AppTheme.darkTheme,
             themeMode: themeNotifier.themeMode,
             debugShowCheckedModeBanner: false,
-            initialRoute: AppRoutes.auth,
+            home: const AuthGateScreen(),
             onGenerateRoute: AppRoutes.onGenerateRoute,
           );
         },
