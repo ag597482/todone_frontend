@@ -22,6 +22,8 @@ class ApiConstants {
   static String userProfilePath(String userId) => '/api/users/$userId/profile';
   /// PUT /api/users/{userId} — body: { name }
   static String updateUserPath(String userId) => '/api/users/$userId';
+  /// PATCH /api/users/{userId}/telegram — body: { telegramToken }
+  static String userTelegramPath(String userId) => '/api/users/$userId/telegram';
 
   // Endpoints - Tasks
   static const String getTasksEndpoint = '/tasks';

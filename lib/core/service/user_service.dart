@@ -27,4 +27,14 @@ class UserService {
       fromJson: (_) => null,
     );
   }
+
+  /// PATCH /api/users/{userId}/telegram with body { telegramToken }. Links Telegram bot.
+  Future<ApiResult<Object?>> patchTelegram(String userId, String telegramToken) async {
+    final path = ApiConstants.userTelegramPath(userId);
+    return _client.patch<Object?>(
+      path,
+      {'telegramToken': telegramToken.trim()},
+      fromJson: (_) => null,
+    );
+  }
 }

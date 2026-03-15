@@ -115,6 +115,55 @@ class ApiClient {
     }
   }
 
+  /// PATCH [path] with [body] as JSON.
+  Future<ApiResult<T>> patch<T>(
+    String path,
+    Map<String, dynamic> body, {
+    T Function(dynamic)? fromJson,
+  }) async {
+    final baseUrl = await _baseUrlService.getBaseUrl();
+    final uri = Uri.parse(baseUrl + path);
+    final bodyBytes = utf8.encode(jsonEncode(body));
+    try {
+      final response = await _client
+          .patch(
+            uri,
+            headers: {
+              'Content-Type': ApiConstants.contentType,
+              'Accept': '*/*',
+            },
+            body: bodyBytes,
+          )
+          .timeout(
+            ApiConstants.connectionTimeout,
+            onTimeout: () => throw Exception('Connection timeout'),
+          );
+
+      final decoded = response.body.isNotEmpty
+          ? (jsonDecode(response.body) as Map<String, dynamic>?)
+          : null;
+
+      final success = decoded?['success'] == true;
+      final message = decoded?['message'] as String? ?? 'Request failed';
+      final data = decoded?['data'];
+
+      if (success) {
+        if (fromJson != null) {
+          return ApiSuccess(fromJson(data ?? {}));
+        }
+        if (data != null) return ApiSuccess(data as T);
+      }
+
+      return ApiFailure(
+        message,
+        statusCode: response.statusCode,
+      );
+    } on Exception catch (e) {
+      final msg = e.toString().replaceFirst('Exception: ', '');
+      return ApiFailure(msg.contains('timeout') ? 'Connection timeout' : msg);
+    }
+  }
+
   /// GET [path]. Optional [fromJson] to map response data to T.
   Future<ApiResult<T>> get<T>(
     String path, {

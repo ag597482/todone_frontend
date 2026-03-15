@@ -21,21 +21,33 @@ class _BaseUrlScreenState extends State<BaseUrlScreen> {
   static const String _railwayUrl = 'https://todone-todone.up.railway.app';
 
   final BaseUrlService _baseUrlService = BaseUrlService();
+  final UserStorageService _userStorage = UserStorageService();
+  final UserService _userService = UserService();
   final TextEditingController _customController = TextEditingController();
+  final TextEditingController _telegramTokenController = TextEditingController();
 
   BaseUrlOption _selectedOption = BaseUrlOption.railway;
   bool _loading = true;
+  String? _userId;
+  bool _telegramIntegrating = false;
 
   @override
   void initState() {
     super.initState();
     _loadCurrentUrl();
+    _loadUserId();
   }
 
   @override
   void dispose() {
     _customController.dispose();
+    _telegramTokenController.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadUserId() async {
+    final user = await _userStorage.getUser();
+    if (mounted) setState(() => _userId = user?.userId);
   }
 
   Future<void> _loadCurrentUrl() async {
@@ -61,6 +73,37 @@ class _BaseUrlScreenState extends State<BaseUrlScreen> {
         return _railwayUrl;
       case BaseUrlOption.custom:
         return _customController.text.trim();
+    }
+  }
+
+  Future<void> _integrateTelegram() async {
+    final token = _telegramTokenController.text.trim();
+    if (token.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text(AppStrings.telegramPleaseEnterToken)),
+      );
+      return;
+    }
+    final userId = _userId;
+    if (userId == null || userId.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please log in again')),
+      );
+      return;
+    }
+    setState(() => _telegramIntegrating = true);
+    final result = await _userService.patchTelegram(userId, token);
+    if (!mounted) return;
+    setState(() => _telegramIntegrating = false);
+    switch (result) {
+      case ApiSuccess():
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text(AppStrings.telegramLinkedSuccess)),
+        );
+      case ApiFailure(message: final message):
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(message)),
+        );
     }
   }
 
@@ -199,6 +242,78 @@ class _BaseUrlScreenState extends State<BaseUrlScreen> {
                         ),
                       ),
                       child: const Text(AppStrings.save),
+                    ),
+                  ),
+                  const SizedBox(height: 40),
+                  // Telegram integration
+                  Text(
+                    AppStrings.telegramIntegration,
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: isDark ? const Color(0xFFE2E8F0) : const Color(0xFF1E293B),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    AppStrings.telegramBotTokenHint,
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: isDark
+                          ? const Color(0xFF94A3B8)
+                          : const Color(0xFF64748B),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: _telegramTokenController,
+                    decoration: InputDecoration(
+                      hintText: AppStrings.telegramBotTokenHint,
+                      filled: true,
+                      fillColor: isDark
+                          ? const Color(0xFF1E293B)
+                          : const Color(0xFFF1F5F9),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(
+                          color: isDark
+                              ? const Color(0xFF334155)
+                              : const Color(0xFFE2E8F0),
+                        ),
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 14,
+                      ),
+                    ),
+                    obscureText: false,
+                    autocorrect: false,
+                  ),
+                  const SizedBox(height: 16),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      onPressed: _telegramIntegrating ? null : _integrateTelegram,
+                      icon: _telegramIntegrating
+                          ? const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
+                            )
+                          : const Icon(Icons.link, size: 20),
+                      label: Text(
+                        _telegramIntegrating ? 'Linking...' : AppStrings.integrate,
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF4F46E5),
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
                     ),
                   ),
                 ],

@@ -181,9 +181,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
               const SizedBox(height: 16),
               // Tasks Section
               Expanded(
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.fromLTRB(24, 0, 24, 100),
-                  child: Column(
+                child: RefreshIndicator(
+                  onRefresh: _fetchTasks,
+                  child: SingleChildScrollView(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    padding: const EdgeInsets.fromLTRB(24, 0, 24, 100),
+                    child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Row(
@@ -318,6 +321,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   ),
                 ),
               ),
+            ),
             ],
           ),
         ],

@@ -251,7 +251,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           final dateStr = _formatTaskDate(task.dueDate);
                           final status = task.status?.toUpperCase() == 'COMPLETED'
                               ? TaskStatus.done
-                              : TaskStatus.missed;
+                              : TaskStatus.pending;
                           return Padding(
                             padding: EdgeInsets.only(
                               bottom: i < _profile!.tasks.length - 1 ? 8 : 0,

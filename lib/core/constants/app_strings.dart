@@ -29,6 +29,13 @@ class AppStrings {
   static const String save = 'Save';
   static const String baseUrlSaved = 'Base URL saved';
 
+  // Telegram integration
+  static const String telegramIntegration = 'Telegram integration';
+  static const String telegramBotTokenHint = 'Bot token from @BotFather';
+  static const String integrate = 'Integrate';
+  static const String telegramLinkedSuccess = 'Telegram linked successfully';
+  static const String telegramPleaseEnterToken = 'Please enter your bot token';
+
   // Dashboard
   static const String greetingString = 'Hey';
   static const String todaysTasks = "Today's Tasks";

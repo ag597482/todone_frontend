@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-enum TaskStatus { done, missed }
+enum TaskStatus { done, missed, pending }
 
 class TaskHistoryItem extends StatelessWidget {
   final String title;
@@ -18,10 +18,25 @@ class TaskHistoryItem extends StatelessWidget {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final isDone = status == TaskStatus.done;
-    final iconColor = isDone ? const Color(0xFF16A34A) : const Color(0xFFDC2626);
+    final isPending = status == TaskStatus.pending;
+    final iconColor = isDone
+        ? const Color(0xFF16A34A)
+        : (isPending ? const Color(0xFF4F46E5) : const Color(0xFFDC2626));
     final bgColor = isDone
         ? const Color(0xFFF0FDF4)
-        : (isDark ? const Color(0xFF7F1D1D) : const Color(0xFFFEE2E2));
+        : isPending
+            ? (isDark ? const Color(0xFF1E293B) : const Color(0xFFEEF2FF))
+            : (isDark ? const Color(0xFF7F1D1D) : const Color(0xFFFEE2E2));
+
+    final statusLabel = isDone ? 'Done' : (isPending ? 'Pending' : 'Missed');
+    final labelColor = isDone
+        ? const Color(0xFF16A34A)
+        : (isPending ? const Color(0xFF4F46E5) : const Color(0xFFDC2626));
+    final labelBgColor = isDone
+        ? (isDark ? const Color(0xFF064E3B) : const Color(0xFFE6F4EA))
+        : isPending
+            ? (isDark ? const Color(0xFF312E81) : const Color(0xFFE0E7FF))
+            : (isDark ? const Color(0xFF7F1D1D) : const Color(0xFFFCE7E7));
 
     return Container(
       decoration: BoxDecoration(
@@ -42,7 +57,7 @@ class TaskHistoryItem extends StatelessWidget {
               borderRadius: BorderRadius.circular(8),
             ),
             child: Icon(
-              isDone ? Icons.task_alt : Icons.close,
+              isDone ? Icons.task_alt : (isPending ? Icons.schedule : Icons.close),
               color: iconColor,
               size: 20,
             ),
@@ -76,21 +91,17 @@ class TaskHistoryItem extends StatelessWidget {
           ),
           Container(
             decoration: BoxDecoration(
-              color: isDark
-                  ? (isDone ? const Color(0xFF064E3B) : const Color(0xFF7F1D1D))
-                  : (isDone
-                      ? const Color(0xFFE6F4EA)
-                      : const Color(0xFFFCE7E7)),
+              color: labelBgColor,
               borderRadius: BorderRadius.circular(4),
             ),
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
             child: Text(
-              isDone ? 'Done' : 'Missed',
+              statusLabel,
               style: TextStyle(
                 fontSize: 10,
                 fontWeight: FontWeight.bold,
                 letterSpacing: 0.5,
-                color: isDone ? const Color(0xFF16A34A) : const Color(0xFFDC2626),
+                color: labelColor,
               ),
             ),
           ),
