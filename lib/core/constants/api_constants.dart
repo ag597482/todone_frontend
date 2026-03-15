@@ -25,6 +25,8 @@ class ApiConstants {
   static const String updateTaskStatusPath = '/api/tasks'; // append /{taskId}/status or /{taskId} for GET/DELETE
   static const String getTaskPath = '/api/tasks'; // append /{taskId} for GET, /{taskId}?userId= for DELETE
   static const String createTaskPath = '/api/tasks'; // POST
+  // PUT /api/tasks/{taskId}/subtask-status — body: userId, subtaskValue, completed
+  static String subtaskStatusPath(String taskId) => '$getTaskPath/$taskId/subtask-status';
   static const String createTaskEndpoint = '/tasks';
   static const String updateTaskEndpoint = '/tasks/:id';
   static const String deleteTaskEndpoint = '/tasks/:id';

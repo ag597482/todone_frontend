@@ -30,21 +30,17 @@ class TaskDetailScreen extends StatefulWidget {
 class _TaskDetailScreenState extends State<TaskDetailScreen> {
   final TextEditingController _progressController = TextEditingController();
   final TaskService _taskService = TaskService();
-  late List<Map<String, dynamic>> steps;
   bool isTaskCompleted = false;
 
   TaskModel? _task;
   bool _loading = true;
   String? _error;
+  int? _togglingStepIndex;
+  bool _markingComplete = false;
 
   @override
   void initState() {
     super.initState();
-    steps = [
-      {'title': 'Buy gym clothes', 'completed': false},
-      {'title': 'Find nearby gym', 'completed': false},
-      {'title': 'Pack your gym bag tonight', 'completed': false},
-    ];
     if (widget.taskId != null) {
       _fetchTask();
     } else {
@@ -127,10 +123,29 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     super.dispose();
   }
 
-  void _toggleStep(int index) {
-    setState(() {
-      steps[index]['completed'] = !steps[index]['completed'];
-    });
+  Future<void> _toggleStep(int index) async {
+    final task = _task;
+    if (task == null || widget.taskId == null || widget.userId == null) return;
+    if (index < 0 || index >= task.steps.length) return;
+    final step = task.steps[index];
+    final newCompleted = !step.completed;
+    setState(() => _togglingStepIndex = index);
+    final result = await _taskService.updateSubtaskStatus(
+      widget.taskId!,
+      widget.userId!,
+      step.value,
+      newCompleted,
+    );
+    if (!mounted) return;
+    setState(() => _togglingStepIndex = null);
+    switch (result) {
+      case ApiSuccess(data: final updatedTask):
+        setState(() => _task = updatedTask);
+      case ApiFailure(message: final message):
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(message)),
+        );
+    }
   }
 
   void _submitProgress() {
@@ -143,16 +158,38 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     }
   }
 
-  void _markTaskCompleted() {
-    setState(() {
-      isTaskCompleted = true;
-    });
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Task marked as completed')),
+  Future<void> _markTaskCompleted() async {
+    if (widget.taskId == null || widget.userId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Cannot complete task')),
+      );
+      return;
+    }
+    setState(() => _markingComplete = true);
+    final result = await _taskService.updateTaskStatus(
+      widget.taskId!,
+      widget.userId!,
+      'COMPLETED',
     );
-    Future.delayed(const Duration(seconds: 1), () {
-      if (mounted) Navigator.of(context).pop();
-    });
+    if (!mounted) return;
+    setState(() => _markingComplete = false);
+    switch (result) {
+      case ApiSuccess(data: final updatedTask):
+        setState(() {
+          isTaskCompleted = true;
+          _task = updatedTask;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text(AppStrings.taskCompleted)),
+        );
+        Future.delayed(const Duration(seconds: 1), () {
+          if (mounted) Navigator.of(context).pop();
+        });
+      case ApiFailure(message: final message):
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(message)),
+        );
+    }
   }
 
   String get _title => _task?.title ?? widget.taskTitle;
@@ -336,112 +373,178 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                         ),
                       ),
 
-            // AI Generated Steps Section
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      const Icon(
-                        Icons.auto_awesome,
-                        color: Color(0xFF4F46E5),
-                        size: 20,
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        AppStrings.aiGeneratedSteps,
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
+            // AI Generated Steps Section (from API meta.steps, toggle via PUT subtask-status)
+            if (_task?.steps.isNotEmpty ?? false) ...[
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        const Icon(
+                          Icons.auto_awesome,
+                          color: Color(0xFF4F46E5),
+                          size: 20,
                         ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  Container(
-                    decoration: BoxDecoration(
-                      color: isDark ? const Color(0xFF1E293B) : Colors.white,
-                      border: Border.all(
-                        color: isDark
-                            ? const Color(0xFF334155)
-                            : const Color(0xFFE2E8F0),
-                      ),
-                      borderRadius: BorderRadius.circular(12),
+                        const SizedBox(width: 8),
+                        Text(
+                          AppStrings.aiGeneratedSteps,
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
                     ),
-                    child: ListView.builder(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      itemCount: steps.length,
-                      itemBuilder: (context, index) {
-                        final step = steps[index];
-                        final isCompleted = step['completed'] as bool;
-
-                        return GestureDetector(
-                          onTap: () => _toggleStep(index),
-                          child: Container(
-                            decoration: BoxDecoration(
-                              border: index != steps.length - 1
-                                  ? Border(
-                                      bottom: BorderSide(
-                                        color: isDark
-                                            ? const Color(0xFF334155)
-                                            : const Color(0xFFE2E8F0),
-                                      ),
-                                    )
-                                  : null,
-                            ),
-                            padding: const EdgeInsets.all(12),
-                            child: Row(
+                    const SizedBox(height: 8),
+                    // Progress bar: 0–100% based on completed subtasks
+                    Builder(
+                      builder: (context) {
+                        final total = _task!.steps.length;
+                        final completed = _task!.steps.where((s) => s.completed).length;
+                        final progress = total > 0 ? completed / total : 0.0;
+                        final percent = (progress * 100).round();
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                Checkbox(
-                                  value: isCompleted,
-                                  onChanged: (_) => _toggleStep(index),
-                                  fillColor: MaterialStateProperty.resolveWith(
-                                    (states) {
-                                      if (states
-                                          .contains(MaterialState.selected)) {
-                                        return const Color(0xFF4F46E5);
-                                      }
-                                      return Colors.transparent;
-                                    },
-                                  ),
-                                  side: const BorderSide(
-                                    color: Color(0xFF94A3B8),
+                                Text(
+                                  '$completed of $total completed',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w500,
+                                    color: isDark
+                                        ? const Color(0xFF94A3B8)
+                                        : const Color(0xFF64748B),
                                   ),
                                 ),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  child: Text(
-                                    step['title'] as String,
-                                    style: TextStyle(
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w500,
-                                      decoration: isCompleted
-                                          ? TextDecoration.lineThrough
-                                          : null,
-                                      color: isCompleted
-                                          ? (isDark
-                                              ? const Color(0xFF64748B)
-                                              : const Color(0xFFA0AEC0))
-                                          : (isDark
-                                              ? const Color(0xFFE2E8F0)
-                                              : const Color(0xFF1E293B)),
-                                    ),
+                                Text(
+                                  '$percent%',
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold,
+                                    color: Color(0xFF4F46E5),
                                   ),
                                 ),
                               ],
                             ),
-                          ),
+                            const SizedBox(height: 6),
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(4),
+                              child: LinearProgressIndicator(
+                                value: progress,
+                                minHeight: 6,
+                                backgroundColor: isDark
+                                    ? const Color(0xFF334155)
+                                    : const Color(0xFFE2E8F0),
+                                valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF4F46E5)),
+                              ),
+                            ),
+                          ],
                         );
                       },
                     ),
-                  ),
-                ],
+                    const SizedBox(height: 12),
+                    Container(
+                      decoration: BoxDecoration(
+                        color: isDark ? const Color(0xFF1E293B) : Colors.white,
+                        border: Border.all(
+                          color: isDark
+                              ? const Color(0xFF334155)
+                              : const Color(0xFFE2E8F0),
+                        ),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: ListView.builder(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        itemCount: _task!.steps.length,
+                        itemBuilder: (context, index) {
+                          final step = _task!.steps[index];
+                          final isToggling = _togglingStepIndex == index;
+
+                          return GestureDetector(
+                            onTap: isToggling ? null : () => _toggleStep(index),
+                            child: Container(
+                              decoration: BoxDecoration(
+                                border: index != _task!.steps.length - 1
+                                    ? Border(
+                                        bottom: BorderSide(
+                                          color: isDark
+                                              ? const Color(0xFF334155)
+                                              : const Color(0xFFE2E8F0),
+                                        ),
+                                      )
+                                    : null,
+                              ),
+                              padding: const EdgeInsets.all(12),
+                              child: Row(
+                                children: [
+                                  if (isToggling)
+                                    const SizedBox(
+                                      width: 24,
+                                      height: 24,
+                                      child: Padding(
+                                        padding: EdgeInsets.all(2),
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                        ),
+                                      ),
+                                    )
+                                  else
+                                    Checkbox(
+                                      value: step.completed,
+                                      onChanged: widget.userId != null
+                                          ? (_) => _toggleStep(index)
+                                          : null,
+                                      fillColor: MaterialStateProperty.resolveWith(
+                                        (states) {
+                                          if (states
+                                              .contains(MaterialState.selected)) {
+                                            return const Color(0xFF4F46E5);
+                                          }
+                                          return Colors.transparent;
+                                        },
+                                      ),
+                                      side: const BorderSide(
+                                        color: Color(0xFF94A3B8),
+                                      ),
+                                    ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      step.value,
+                                      style: TextStyle(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w500,
+                                        decoration: step.completed
+                                            ? TextDecoration.lineThrough
+                                            : null,
+                                        color: step.completed
+                                            ? (isDark
+                                                ? const Color(0xFF64748B)
+                                                : const Color(0xFFA0AEC0))
+                                            : (isDark
+                                                ? const Color(0xFFE2E8F0)
+                                                : const Color(0xFF1E293B)),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            ),
-            const SizedBox(height: 20),
+              const SizedBox(height: 20),
+            ],
 
             // AI Suggestion Box
             Padding(
@@ -550,7 +653,9 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
               child: SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
-                  onPressed: isTaskCompleted ? null : _markTaskCompleted,
+                  onPressed: (isTaskCompleted || _markingComplete)
+                      ? null
+                      : _markTaskCompleted,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF4F46E5),
                     disabledBackgroundColor: const Color(0xFF9CA3AF),
@@ -559,26 +664,37 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                       borderRadius: BorderRadius.circular(12),
                     ),
                   ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        isTaskCompleted ? Icons.check_circle : Icons.check_circle_outline,
-                        color: Colors.white,
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        isTaskCompleted
-                            ? AppStrings.taskCompleted
-                            : AppStrings.markTaskCompleted,
-                        style: const TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
+                  child: _markingComplete
+                      ? const SizedBox(
+                          height: 20,
+                          width: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                          ),
+                        )
+                      : Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              isTaskCompleted
+                                  ? Icons.check_circle
+                                  : Icons.check_circle_outline,
+                              color: Colors.white,
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              isTaskCompleted
+                                  ? AppStrings.taskCompleted
+                                  : AppStrings.markTaskCompleted,
+                              style: const TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ],
                         ),
-                      ),
-                    ],
-                  ),
                 ),
               ),
             ),

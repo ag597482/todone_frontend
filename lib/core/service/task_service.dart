@@ -42,6 +42,27 @@ class TaskService {
     return _client.delete<Object?>(path);
   }
 
+  /// PUT /api/tasks/{taskId}/subtask-status with body { userId, subtaskValue, completed }.
+  /// Returns updated task with meta.steps reflecting the new completion state.
+  Future<ApiResult<TaskModel>> updateSubtaskStatus(
+    String taskId,
+    String userId,
+    String subtaskValue,
+    bool completed,
+  ) {
+    final path = ApiConstants.subtaskStatusPath(taskId);
+    final body = {
+      'userId': userId,
+      'subtaskValue': subtaskValue,
+      'completed': completed,
+    };
+    return _client.put<TaskModel>(
+      path,
+      body,
+      fromJson: TaskModel.fromJson,
+    );
+  }
+
   /// POST /api/tasks with body { name, description, meta?, dueDate, authorId }.
   /// dueDate format: yyyy-MM-dd.
   Future<ApiResult<TaskModel>> createTask(

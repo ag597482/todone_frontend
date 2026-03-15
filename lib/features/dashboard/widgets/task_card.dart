@@ -17,6 +17,12 @@ class TaskCard extends StatefulWidget {
   final String? userId;
   final bool initialChecked;
   final VoidCallback? onStatusChanged;
+  /// Called when the user returns from the task detail screen (e.g. to refresh the list).
+  final VoidCallback? onReturnFromDetail;
+  /// Subtask progress: completed count (e.g. 2).
+  final int? subtaskCompleted;
+  /// Subtask progress: total count (e.g. 4). Progress bar shown only when > 0.
+  final int? subtaskTotal;
 
   const TaskCard({
     super.key,
@@ -33,6 +39,9 @@ class TaskCard extends StatefulWidget {
     this.userId,
     this.initialChecked = false,
     this.onStatusChanged,
+    this.onReturnFromDetail,
+    this.subtaskCompleted,
+    this.subtaskTotal,
   });
 
   @override
@@ -104,7 +113,9 @@ class _TaskCardState extends State<TaskCard> {
         taskId: widget.taskId,
         userId: widget.userId,
       ),
-    );
+    ).then((_) {
+      widget.onReturnFromDetail?.call();
+    });
   }
 
   @override
@@ -189,6 +200,41 @@ class _TaskCardState extends State<TaskCard> {
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                       ),
+                      if (widget.subtaskTotal != null &&
+                          widget.subtaskTotal! > 0) ...[
+                        const SizedBox(height: 10),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(3),
+                                child: LinearProgressIndicator(
+                                  value: (widget.subtaskCompleted ?? 0) /
+                                      widget.subtaskTotal!,
+                                  minHeight: 4,
+                                  backgroundColor: isDark
+                                      ? const Color(0xFF334155)
+                                      : const Color(0xFFE2E8F0),
+                                  valueColor: const AlwaysStoppedAnimation<Color>(
+                                    Color(0xFF4F46E5),
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              '${widget.subtaskCompleted ?? 0}/${widget.subtaskTotal}',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                                color: isDark
+                                    ? const Color(0xFF94A3B8)
+                                    : const Color(0xFF64748B),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
                     ],
                   ),
                 ),

@@ -1,6 +1,14 @@
 import 'package:flutter/material.dart';
 
-/// Task model from GET /api/tasks/user/{userId} response (data list item).
+/// A single subtask/step from API meta.steps (value + completed).
+class SubtaskStep {
+  const SubtaskStep(this.value, this.completed);
+  final String value;
+  final bool completed;
+}
+
+/// Task model from GET /api/tasks/user/{userId} and POST /api/tasks response (data).
+/// Supports meta.steps from API as list of strings or list of { value, completed }.
 class TaskModel {
   TaskModel({
     required this.id,
@@ -9,9 +17,11 @@ class TaskModel {
     this.dueDate,
     this.reminderTime,
     this.status,
-    this.hasAISteps = false,
+    List<SubtaskStep>? steps,
+    bool? hasAISteps,
     this.hasNotes = false,
-  });
+  })  : steps = steps ?? const [],
+        hasAISteps = hasAISteps ?? (steps?.isNotEmpty ?? false);
 
   final String id;
   final String title;
@@ -19,11 +29,37 @@ class TaskModel {
   final String? dueDate;
   final String? reminderTime;
   final String? status;
+  /// AI-generated steps from API response meta.steps (value + completed).
+  final List<SubtaskStep> steps;
   final bool hasAISteps;
   final bool hasNotes;
 
+  /// Parses meta.steps from API: either ["step1", "step2"] or [{ "value": "...", "completed": bool }].
+  static List<SubtaskStep> _parseSteps(dynamic json) {
+    if (json == null) return [];
+    final map = json is Map<String, dynamic> ? json : Map<String, dynamic>.from(json as Map);
+    final meta = map['meta'];
+    if (meta is! Map) return [];
+    final s = meta['steps'];
+    if (s is! List) return [];
+    final result = <SubtaskStep>[];
+    for (final e in s) {
+      if (e is String && e.isNotEmpty) {
+        result.add(SubtaskStep(e, false));
+      } else if (e is Map) {
+        final m = e is Map<String, dynamic> ? e : Map<String, dynamic>.from(e);
+        final value = (m['value'] ?? m['title'] ?? '').toString().trim();
+        if (value.isEmpty) continue;
+        final completed = m['completed'] == true;
+        result.add(SubtaskStep(value, completed));
+      }
+    }
+    return result;
+  }
+
   static TaskModel fromJson(dynamic json) {
     final map = json is Map<String, dynamic> ? json : Map<String, dynamic>.from(json as Map);
+    final stepsList = _parseSteps(map);
     return TaskModel(
       id: map['task_id']?.toString() ?? map['id']?.toString() ?? '',
       title: map['name'] as String? ?? map['title'] as String? ?? '',
@@ -31,7 +67,10 @@ class TaskModel {
       dueDate: map['dueDate']?.toString() ?? map['due_date']?.toString(),
       reminderTime: map['reminderTime']?.toString() ?? map['reminder_time']?.toString() ?? map['time']?.toString(),
       status: map['status']?.toString() ?? map['label']?.toString() ?? map['category']?.toString(),
-      hasAISteps: map['hasAISteps'] == true || map['has_ai_steps'] == true,
+      steps: stepsList,
+      hasAISteps: map['hasAISteps'] == true ||
+          map['has_ai_steps'] == true ||
+          stepsList.isNotEmpty,
       hasNotes: map['hasNotes'] == true ||
           map['has_notes'] == true ||
           (map['meta'] is Map && (map['meta'] as Map).isNotEmpty) ||

@@ -232,7 +232,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               vertical: 4,
                             ),
                             child: Text(
-                              '${_tasks.length} ${AppStrings.tasksLeft}',
+                              '${_tasks.where((t) => t.status != "COMPLETED").length} ${AppStrings.tasksLeft}',
                               style: const TextStyle(
                                 fontSize: 12,
                                 fontWeight: FontWeight.bold,
@@ -301,6 +301,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                 userId: _userId,
                                 initialChecked: task.status == 'COMPLETED',
                                 onStatusChanged: _fetchTasks,
+                                onReturnFromDetail: () {
+                                  if (mounted) _fetchTasks();
+                                },
+                                subtaskCompleted: task.steps
+                                    .where((s) => s.completed)
+                                    .length,
+                                subtaskTotal: task.steps.isEmpty
+                                    ? null
+                                    : task.steps.length,
                               ),
                             );
                           },
