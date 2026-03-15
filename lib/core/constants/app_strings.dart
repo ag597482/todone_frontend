@@ -72,6 +72,15 @@ class AppStrings {
   static const String oneTimeTaskLabel = 'One-time Task';
   static const String routineLabel = 'Routine';
   static const String swipeToDismiss = 'Swipe left to dismiss...';
+  static const String read = 'Read';
+  static const String swipeRightReadLeftUnread =
+      'Swipe right to mark read, left to mark unread';
+  static const String markRead = 'Mark read';
+  static const String markUnread = 'Mark unread';
+  static const String clearAllReadNotifications = 'Clear all read';
+  static const String noNotifications = 'No notifications';
+  static const String noReadNotifications = 'No read notifications';
+  static const String noUnreadNotifications = 'No unread notifications';
 
   // Create Task
   static const String createTask = 'Create Task';

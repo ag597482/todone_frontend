@@ -40,6 +40,10 @@ class ApiConstants {
   // Endpoints - Notifications
   static const String getNotificationsEndpoint = '/notifications';
   static const String markNotificationReadEndpoint = '/notifications/:id/read';
+  /// GET /api/notifications/user/{userId}
+  static String notificationsForUserPath(String userId) => '/api/notifications/user/$userId';
+  /// PATCH /api/notifications/{notificationId}/status — body: userId, notificationStatus
+  static String notificationStatusPath(String notificationId) => '/api/notifications/$notificationId/status';
 
   // Timeouts
   static const Duration connectionTimeout = Duration(seconds: 30);

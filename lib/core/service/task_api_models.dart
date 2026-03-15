@@ -35,13 +35,14 @@ class TaskModel {
   final bool hasNotes;
 
   /// Parses meta.steps from API: either ["step1", "step2"] or [{ "value": "...", "completed": bool }].
+  /// Handles empty meta ({}) or missing meta/steps (e.g. task create response with meta: {}).
   static List<SubtaskStep> _parseSteps(dynamic json) {
     if (json == null) return [];
     final map = json is Map<String, dynamic> ? json : Map<String, dynamic>.from(json as Map);
     final meta = map['meta'];
-    if (meta is! Map) return [];
+    if (meta == null || meta is! Map) return [];
     final s = meta['steps'];
-    if (s is! List) return [];
+    if (s == null || s is! List) return [];
     final result = <SubtaskStep>[];
     for (final e in s) {
       if (e is String && e.isNotEmpty) {

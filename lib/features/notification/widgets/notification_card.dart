@@ -1,71 +1,63 @@
 import 'package:flutter/material.dart';
-
-enum NotificationStatus { dueSoon, missed, rolledOver, new_ }
+import 'package:todone_frontend/core/service/notification_api_models.dart';
 
 class NotificationCard extends StatelessWidget {
-  final String title;
-  final String taskType; // "One-time Task" or "Routine"
-  final String time;
-  final NotificationStatus status;
-  final IconData icon;
-  final Color iconBgColor;
-  final Color iconColor;
-  final VoidCallback? onDismiss;
-
   const NotificationCard({
     super.key,
-    required this.title,
-    required this.taskType,
-    required this.time,
-    required this.status,
-    required this.icon,
-    required this.iconBgColor,
-    required this.iconColor,
-    this.onDismiss,
+    required this.notification,
   });
 
-  String _getStatusLabel() {
-    switch (status) {
-      case NotificationStatus.dueSoon:
-        return 'DUE SOON';
-      case NotificationStatus.missed:
-        return 'MISSED';
-      case NotificationStatus.rolledOver:
-        return 'ROLLED OVER';
-      case NotificationStatus.new_:
-        return 'NEW';
+  final NotificationModel notification;
+
+  static String _formatTime(String? timeStr) {
+    if (timeStr == null || timeStr.isEmpty) return '--';
+    try {
+      final d = DateTime.parse(timeStr);
+      final now = DateTime.now();
+      final today = DateTime(now.year, now.month, now.day);
+      final yesterday = today.subtract(const Duration(days: 1));
+      final t = DateTime(d.year, d.month, d.day);
+      final timePart =
+          '${d.hour > 12 ? d.hour - 12 : d.hour == 0 ? 12 : d.hour}:${d.minute.toString().padLeft(2, '0')} ${d.hour >= 12 ? 'PM' : 'AM'}';
+      if (t == today) return 'Today $timePart';
+      if (t == yesterday) return 'Yesterday $timePart';
+      const months = [
+        'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+        'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+      ];
+      return '${months[d.month - 1]} ${d.day}, $timePart';
+    } catch (_) {
+      return timeStr;
     }
   }
 
-  Color _getStatusColor() {
-    switch (status) {
-      case NotificationStatus.dueSoon:
-        return const Color(0xFFA16207);
-      case NotificationStatus.missed:
-        return const Color(0xFFBE123C);
-      case NotificationStatus.rolledOver:
-        return const Color(0xFF64748B);
-      case NotificationStatus.new_:
-        return const Color(0xFF4F46E5);
+  Color _statusColor(bool isDark) {
+    final s = notification.status.toUpperCase();
+    if (s == 'READ') {
+      return const Color(0xFF4F46E5);
     }
+    return const Color(0xFF64748B);
   }
 
-  Color _getStatusBgColor() {
-    switch (status) {
-      case NotificationStatus.dueSoon:
-        return const Color(0xFFFEF3C7);
-      case NotificationStatus.missed:
-        return const Color(0xFFFFE4E6);
-      case NotificationStatus.rolledOver:
-        return const Color(0xFFF1F5F9);
-      case NotificationStatus.new_:
-        return const Color(0xFFEEF2FF);
+  Color _statusBgColor(bool isDark) {
+    final s = notification.status.toUpperCase();
+    if (s == 'READ') {
+      return isDark ? const Color(0xFF312E81) : const Color(0xFFE0E7FF);
     }
+    return isDark ? const Color(0xFF334155) : const Color(0xFFF1F5F9);
   }
 
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final status = notification.status.toUpperCase();
+    final statusLabel = status.isEmpty ? '--' : status;
+    final iconColor = status == 'READ'
+        ? const Color(0xFF4F46E5)
+        : const Color(0xFF64748B);
+    final iconBgColor = status == 'READ'
+        ? (isDark ? const Color(0xFF312E81) : const Color(0xFFE0E7FF))
+        : (isDark ? const Color(0xFF334155) : const Color(0xFFF1F5F9));
 
     return Container(
       decoration: BoxDecoration(
@@ -90,12 +82,12 @@ class NotificationCard extends StatelessWidget {
             height: 48,
             decoration: BoxDecoration(
               color: isDark
-                  ? iconBgColor.withOpacity(0.2)
-                  : iconBgColor.withOpacity(0.15),
+                  ? iconBgColor.withOpacity(0.5)
+                  : iconBgColor.withOpacity(0.5),
               borderRadius: BorderRadius.circular(8),
             ),
             child: Icon(
-              icon,
+              status == 'READ' ? Icons.done_all : Icons.notifications,
               color: iconColor,
               size: 24,
             ),
@@ -110,7 +102,7 @@ class NotificationCard extends StatelessWidget {
                   children: [
                     Expanded(
                       child: Text(
-                        title,
+                        notification.title,
                         style: Theme.of(context).textTheme.titleLarge?.copyWith(
                               fontWeight: FontWeight.w600,
                               fontSize: 16,
@@ -122,8 +114,8 @@ class NotificationCard extends StatelessWidget {
                     Container(
                       decoration: BoxDecoration(
                         color: isDark
-                            ? _getStatusColor().withOpacity(0.2)
-                            : _getStatusBgColor(),
+                            ? _statusColor(isDark).withOpacity(0.2)
+                            : _statusBgColor(isDark),
                         borderRadius: BorderRadius.circular(4),
                       ),
                       padding: const EdgeInsets.symmetric(
@@ -131,46 +123,42 @@ class NotificationCard extends StatelessWidget {
                         vertical: 4,
                       ),
                       child: Text(
-                        _getStatusLabel(),
+                        statusLabel,
                         style: TextStyle(
                           fontSize: 10,
                           fontWeight: FontWeight.bold,
-                          color: _getStatusColor(),
+                          color: _statusColor(isDark),
                           letterSpacing: 0.5,
                         ),
                       ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    Icon(
-                      taskType == 'Routine' ? Icons.sync : Icons.event,
-                      size: 14,
+                if (notification.description.isNotEmpty) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    notification.description,
+                    style: TextStyle(
+                      fontSize: 12,
                       color: isDark
                           ? const Color(0xFF94A3B8)
                           : const Color(0xFF64748B),
                     ),
-                    const SizedBox(width: 4),
-                    Text(
-                      taskType,
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: isDark
-                            ? const Color(0xFF94A3B8)
-                            : const Color(0xFF64748B),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+                const SizedBox(height: 8),
+                Row(
+                  children: [
                     Icon(
-                      Icons.alarm,
+                      Icons.access_time,
                       size: 14,
                       color: const Color(0xFF4F46E5),
                     ),
                     const SizedBox(width: 4),
                     Text(
-                      time,
+                      _formatTime(notification.time),
                       style: const TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w500,

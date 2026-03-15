@@ -15,6 +15,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   int _currentNavIndex = 0;
   final TaskService _taskService = TaskService();
   final UserStorageService _userStorage = UserStorageService();
+  final NotificationService _notificationService = NotificationService();
 
   late DateTime _selectedDate;
   List<TaskModel> _tasks = [];
@@ -23,12 +24,30 @@ class _DashboardScreenState extends State<DashboardScreen> {
   String _userName = '';
   String? _userId;
   bool _showOnlyPending = false;
+  int _unreadNotificationCount = 0;
 
   @override
   void initState() {
     super.initState();
     _selectedDate = DateTime.now();
     _loadUserAndTasks();
+  }
+
+  Future<void> _loadUnreadNotificationCount() async {
+    final user = await _userStorage.getUser();
+    if (user == null) return;
+    final result = await _notificationService.getNotifications(user.userId);
+    if (!mounted) return;
+    switch (result) {
+      case ApiSuccess(data: final list):
+        setState(() {
+          _unreadNotificationCount = list
+              .where((n) => n.status.toUpperCase() == 'DELIVERED')
+              .length;
+        });
+      case ApiFailure():
+        setState(() => _unreadNotificationCount = 0);
+    }
   }
 
   List<TaskModel> get _displayedTasks => _showOnlyPending
@@ -42,6 +61,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       _userId = user?.userId;
     });
     await _fetchTasks();
+    _loadUnreadNotificationCount();
   }
 
   Future<void> _fetchTasks() async {
@@ -328,6 +348,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       ),
       bottomNavigationBar: BottomNavigation(
         currentIndex: _currentNavIndex,
+        unreadNotificationCount: _unreadNotificationCount,
         onTap: (index) {
           setState(() {
             _currentNavIndex = index;
@@ -343,7 +364,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
           }
           // Navigate to Notification Screen on Alerts button tap
           if (index == 2) {
-            Navigator.pushNamed(context, AppRoutes.notification);
+            Navigator.pushNamed(context, AppRoutes.notification).then((_) {
+              if (mounted) _loadUnreadNotificationCount();
+            });
             setState(() {
               _currentNavIndex = 0;
             });

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:todone_frontend/core/constants/index.dart';
+import 'package:todone_frontend/core/service/index.dart';
 import '../widgets/index.dart';
 
 class NotificationScreen extends StatefulWidget {
@@ -12,14 +14,20 @@ class NotificationScreen extends StatefulWidget {
 class _NotificationScreenState extends State<NotificationScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
+  final NotificationService _notificationService = NotificationService();
+  final UserStorageService _userStorage = UserStorageService();
+
+  List<NotificationModel> _notifications = [];
+  bool _loading = true;
+  String? _error;
+  String? _userId;
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
-    _tabController.addListener(() {
-      setState(() {});
-    });
+    _tabController = TabController(length: 2, vsync: this);
+    _tabController.addListener(() => setState(() {}));
+    _loadNotifications();
   }
 
   @override
@@ -27,6 +35,65 @@ class _NotificationScreenState extends State<NotificationScreen>
     _tabController.dispose();
     super.dispose();
   }
+
+  Future<void> _loadNotifications() async {
+    final user = await _userStorage.getUser();
+    if (user == null) {
+      if (!mounted) return;
+      setState(() {
+        _userId = null;
+        _notifications = [];
+        _loading = false;
+        _error = 'Please log in again';
+      });
+      return;
+    }
+    setState(() {
+      _userId = user.userId;
+      _loading = true;
+      _error = null;
+    });
+    final result = await _notificationService.getNotifications(user.userId);
+    if (!mounted) return;
+    switch (result) {
+      case ApiSuccess(data: final list):
+        setState(() {
+          _notifications = list;
+          _loading = false;
+          _error = null;
+        });
+      case ApiFailure(message: final message):
+        setState(() {
+          _notifications = [];
+          _loading = false;
+          _error = message;
+        });
+    }
+  }
+
+  Future<void> _updateStatus(NotificationModel notification, String status) async {
+    if (_userId == null) return;
+    final result = await _notificationService.updateNotificationStatus(
+      notification.id,
+      _userId!,
+      status,
+    );
+    if (!mounted) return;
+    switch (result) {
+      case ApiSuccess(data: final updated):
+        setState(() {
+          final i = _notifications.indexWhere((n) => n.id == notification.id);
+          if (i >= 0) _notifications[i] = updated;
+        });
+      case ApiFailure(message: final message):
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(message)),
+        );
+    }
+  }
+
+  List<NotificationModel> get _unreadNotifications =>
+      _notifications.where((n) => n.status.toUpperCase() == 'DELIVERED').toList();
 
   @override
   Widget build(BuildContext context) {
@@ -59,14 +126,39 @@ class _NotificationScreenState extends State<NotificationScreen>
         ),
         centerTitle: true,
         actions: [
-          Padding(
-            padding: const EdgeInsets.all(8),
-            child: Icon(
+          PopupMenuButton<String>(
+            icon: Icon(
               Icons.more_vert,
               color: isDark
                   ? const Color(0xFF94A3B8)
                   : const Color(0xFF64748B),
             ),
+            onSelected: (value) async {
+              if (value == 'clear_read' && _userId != null) {
+                final result = await _notificationService
+                    .clearAllReadNotifications(_userId!);
+                if (!mounted) return;
+                switch (result) {
+                  case ApiSuccess():
+                    _loadNotifications();
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('All read notifications deleted'),
+                      ),
+                    );
+                  case ApiFailure(message: final message):
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text(message)),
+                    );
+                }
+              }
+            },
+            itemBuilder: (context) => [
+              PopupMenuItem(
+                value: 'clear_read',
+                child: Text(AppStrings.clearAllReadNotifications),
+              ),
+            ],
           ),
         ],
         bottom: PreferredSize(
@@ -80,168 +172,127 @@ class _NotificationScreenState extends State<NotificationScreen>
             indicatorColor: const Color(0xFF4F46E5),
             indicatorWeight: 3,
             tabs: [
-              Tab(text: AppStrings.all),
               Tab(text: AppStrings.unread),
-              Tab(text: AppStrings.archived),
+              Tab(text: AppStrings.all),
             ],
           ),
         ),
       ),
-      body: TabBarView(
-        controller: _tabController,
-        children: [
-          _buildNotificationsList(context, isDark, 'all'),
-          _buildNotificationsList(context, isDark, 'unread'),
-          _buildNotificationsList(context, isDark, 'archived'),
-        ],
-      ),
+      body: _loading
+          ? const Center(child: CircularProgressIndicator())
+          : _error != null
+              ? Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          _error!,
+                          style: TextStyle(
+                            fontSize: 16,
+                            color: isDark
+                                ? const Color(0xFF94A3B8)
+                                : const Color(0xFF64748B),
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 16),
+                        TextButton(
+                          onPressed: _loadNotifications,
+                          child: const Text('Retry'),
+                        ),
+                      ],
+                    ),
+                  ),
+                )
+              : TabBarView(
+                  controller: _tabController,
+                  children: [
+                    _buildList(isDark, _unreadNotifications, isUnreadTab: true),
+                    _buildList(isDark, _notifications, isUnreadTab: false),
+                  ],
+                ),
     );
   }
 
-  Widget _buildNotificationsList(
-    BuildContext context,
+  Widget _buildList(
     bool isDark,
-    String filterType,
-  ) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Today Section
-          Padding(
-            padding: const EdgeInsets.only(bottom: 12),
-            child: Text(
-              AppStrings.today,
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.bold,
-                color: isDark ? const Color(0xFF64748B) : const Color(0xFF94A3B8),
-                letterSpacing: 1,
-              ),
-            ),
+    List<NotificationModel> list, {
+    bool isUnreadTab = false,
+  }) {
+    if (list.isEmpty) {
+      return Center(
+        child: Text(
+          isUnreadTab
+              ? AppStrings.noUnreadNotifications
+              : AppStrings.noNotifications,
+          style: TextStyle(
+            fontSize: 14,
+            color: isDark
+                ? const Color(0xFF94A3B8)
+                : const Color(0xFF64748B),
           ),
-          NotificationCard(
-            title: 'Submit Project Proposal',
-            taskType: 'One-time Task',
-            time: '10:00 AM',
-            status: NotificationStatus.dueSoon,
-            icon: Icons.schedule,
-            iconColor: const Color(0xFFA16207),
-            iconBgColor: const Color(0xFFFEF3C7),
-          ),
-          const SizedBox(height: 16),
-          // Yesterday Section
-          Padding(
-            padding: const EdgeInsets.only(bottom: 12, top: 8),
-            child: Text(
-              AppStrings.yesterday,
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.bold,
-                color: isDark ? const Color(0xFF64748B) : const Color(0xFF94A3B8),
-                letterSpacing: 1,
-              ),
-            ),
-          ),
-          NotificationCard(
-            title: 'Morning Workout',
-            taskType: 'Routine',
-            time: '07:00 AM',
-            status: NotificationStatus.missed,
-            icon: Icons.notification_important,
-            iconColor: const Color(0xFFBE123C),
-            iconBgColor: const Color(0xFFFFE4E6),
-          ),
-          const SizedBox(height: 12),
-          NotificationCard(
-            title: 'Update Weekly Budget',
-            taskType: 'Routine',
-            time: '06:00 PM',
-            status: NotificationStatus.rolledOver,
-            icon: Icons.redo,
-            iconColor: const Color(0xFF64748B),
-            iconBgColor: const Color(0xFFF1F5F9),
-          ),
-          const SizedBox(height: 16),
-          // Earlier Section
-          Padding(
-            padding: const EdgeInsets.only(bottom: 12, top: 8),
-            child: Text(
-              AppStrings.earlier,
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.bold,
-                color: isDark ? const Color(0xFF64748B) : const Color(0xFF94A3B8),
-                letterSpacing: 1,
-              ),
-            ),
-          ),
-          NotificationCard(
-            title: 'Email Marketing Team',
-            taskType: 'One-time Task',
-            time: 'Oct 24, 2:00 PM',
-            status: NotificationStatus.new_,
-            icon: Icons.mail,
-            iconColor: const Color(0xFF4F46E5),
-            iconBgColor: const Color(0xFFEEF2FF),
-          ),
-          const SizedBox(height: 16),
-          // Swipe Hint
-          Container(
-            decoration: BoxDecoration(
-              border: Border.all(
-                color: isDark
-                    ? const Color(0xFFBE123C).withOpacity(0.3)
-                    : const Color(0xFFFFE4E6),
-                strokeAlign: BorderSide.strokeAlignOutside,
-              ),
-              borderRadius: BorderRadius.circular(12),
-              color: isDark
-                  ? const Color(0xFFBE123C).withOpacity(0.1)
-                  : const Color(0xFFFEF3C7).withOpacity(0.3),
-            ),
-            padding: const EdgeInsets.all(16),
-            child: Row(
-              children: [
-                Container(
-                  width: 48,
-                  height: 48,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFBE123C),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: const Icon(
-                    Icons.delete,
-                    color: Colors.white,
-                    size: 24,
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Text(
-                    AppStrings.swipeToDismiss,
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
-                      color: isDark
-                          ? const Color(0xFFBE123C)
-                          : const Color(0xFFA16207),
-                      fontStyle: FontStyle.italic,
-                    ),
-                  ),
-                ),
-                Icon(
-                  Icons.chevron_left,
+        ),
+      );
+    }
+    return RefreshIndicator(
+      onRefresh: _loadNotifications,
+      child: ListView.builder(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
+        itemCount: list.length + 1,
+        itemBuilder: (context, index) {
+          if (index == list.length) {
+            return Padding(
+              padding: const EdgeInsets.only(top: 16),
+              child: Text(
+                AppStrings.swipeRightReadLeftUnread,
+                style: TextStyle(
+                  fontSize: 12,
+                  fontStyle: FontStyle.italic,
                   color: isDark
-                      ? const Color(0xFFBE123C).withOpacity(0.5)
-                      : const Color(0xFFA16207).withOpacity(0.3),
-                  size: 32,
+                      ? const Color(0xFF64748B)
+                      : const Color(0xFF94A3B8),
                 ),
-              ],
+              ),
+            );
+          }
+          final notification = list[index];
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: Slidable(
+              key: ValueKey(notification.id),
+              startActionPane: ActionPane(
+                motion: const ScrollMotion(),
+                children: [
+                  SlidableAction(
+                    onPressed: (_) => _updateStatus(notification, 'READ'),
+                    backgroundColor: const Color(0xFF4F46E5),
+                    foregroundColor: Colors.white,
+                    icon: Icons.done_all,
+                    label: AppStrings.markRead,
+                  ),
+                ],
+              ),
+              endActionPane: ActionPane(
+                motion: const ScrollMotion(),
+                children: [
+                  SlidableAction(
+                    onPressed: (_) => _updateStatus(notification, 'DELIVERED'),
+                    backgroundColor: const Color(0xFF64748B),
+                    foregroundColor: Colors.white,
+                    icon: Icons.mark_email_unread,
+                    label: AppStrings.markUnread,
+                  ),
+                ],
+              ),
+              child: NotificationCard(
+                notification: notification,
+              ),
             ),
-          ),
-        ],
+          );
+        },
       ),
     );
   }

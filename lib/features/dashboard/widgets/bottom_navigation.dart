@@ -4,11 +4,14 @@ import 'package:todone_frontend/core/constants/index.dart';
 class BottomNavigation extends StatelessWidget {
   final int currentIndex;
   final Function(int) onTap;
+  /// When > 0, a badge is shown on the Alerts tab.
+  final int unreadNotificationCount;
 
   const BottomNavigation({
     super.key,
     required this.currentIndex,
     required this.onTap,
+    this.unreadNotificationCount = 0,
   });
 
   @override
@@ -60,6 +63,7 @@ class BottomNavigation extends StatelessWidget {
                 label: AppStrings.alerts,
                 isActive: currentIndex == 2,
                 onTap: () => onTap(2),
+                badgeCount: unreadNotificationCount,
               ),
               _NavItem(
                 icon: Icons.person,
@@ -80,28 +84,44 @@ class _NavItem extends StatelessWidget {
   final String label;
   final bool isActive;
   final VoidCallback onTap;
+  final int badgeCount;
 
   const _NavItem({
     required this.icon,
     required this.label,
     required this.isActive,
     required this.onTap,
+    this.badgeCount = 0,
   });
 
   @override
   Widget build(BuildContext context) {
+    final iconWidget = Icon(
+      icon,
+      size: 24,
+      color: isActive
+          ? const Color(0xFF4F46E5)
+          : const Color(0xFF94A3B8),
+    );
     return GestureDetector(
       onTap: onTap,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(
-            icon,
-            size: 24,
-            color: isActive
-                ? const Color(0xFF4F46E5)
-                : const Color(0xFF94A3B8),
-          ),
+          badgeCount > 0
+              ? Badge(
+                  label: Text(
+                    badgeCount > 99 ? '99+' : '$badgeCount',
+                    style: const TextStyle(
+                      fontSize: 10,
+                      color: Colors.white,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  backgroundColor: const Color(0xFFEF4444),
+                  child: iconWidget,
+                )
+              : iconWidget,
           const SizedBox(height: 4),
           Text(
             label,
