@@ -21,6 +21,10 @@ class ApiConstants {
 
   // Endpoints - Tasks
   static const String getTasksEndpoint = '/tasks';
+  static const String getTasksForUserPath = '/api/tasks/user'; // append /{userId}?date=yyyy-MM-dd
+  static const String updateTaskStatusPath = '/api/tasks'; // append /{taskId}/status or /{taskId} for GET/DELETE
+  static const String getTaskPath = '/api/tasks'; // append /{taskId} for GET, /{taskId}?userId= for DELETE
+  static const String createTaskPath = '/api/tasks'; // POST
   static const String createTaskEndpoint = '/tasks';
   static const String updateTaskEndpoint = '/tasks/:id';
   static const String deleteTaskEndpoint = '/tasks/:id';

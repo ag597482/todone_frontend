@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:todone_frontend/core/constants/index.dart';
+import 'package:todone_frontend/core/service/index.dart';
 import 'package:todone_frontend/routes/index.dart';
 
 class TaskCard extends StatefulWidget {
@@ -11,6 +12,11 @@ class TaskCard extends StatefulWidget {
   final String time;
   final bool hasAISteps;
   final bool hasNotes;
+  final String? dueDate;
+  final String? taskId;
+  final String? userId;
+  final bool initialChecked;
+  final VoidCallback? onStatusChanged;
 
   const TaskCard({
     super.key,
@@ -22,6 +28,11 @@ class TaskCard extends StatefulWidget {
     required this.time,
     this.hasAISteps = true,
     this.hasNotes = false,
+    this.dueDate,
+    this.taskId,
+    this.userId,
+    this.initialChecked = false,
+    this.onStatusChanged,
   });
 
   @override
@@ -29,7 +40,56 @@ class TaskCard extends StatefulWidget {
 }
 
 class _TaskCardState extends State<TaskCard> {
-  bool isChecked = false;
+  late bool isChecked;
+  bool _updating = false;
+  final TaskService _taskService = TaskService();
+
+  @override
+  void initState() {
+    super.initState();
+    isChecked = widget.initialChecked;
+  }
+
+  @override
+  void didUpdateWidget(TaskCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.initialChecked != widget.initialChecked) {
+      isChecked = widget.initialChecked;
+    }
+  }
+
+  Future<void> _onCheckChanged(bool? value) async {
+    final newValue = value ?? false;
+    if (widget.taskId == null || widget.userId == null) {
+      setState(() => isChecked = newValue);
+      return;
+    }
+
+    setState(() {
+      isChecked = newValue;
+      _updating = true;
+    });
+
+    final status = newValue ? 'COMPLETED' : 'PENDING';
+    final result = await _taskService.updateTaskStatus(
+      widget.taskId!,
+      widget.userId!,
+      status,
+    );
+
+    if (!mounted) return;
+    setState(() => _updating = false);
+
+    switch (result) {
+      case ApiSuccess():
+        widget.onStatusChanged?.call();
+      case ApiFailure(message: final message):
+        setState(() => isChecked = !newValue);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(message)),
+        );
+    }
+  }
 
   void _openTaskDetail(BuildContext context) {
     Navigator.pushNamed(
@@ -39,8 +99,10 @@ class _TaskCardState extends State<TaskCard> {
         taskTitle: widget.title,
         taskDescription: widget.description,
         category: widget.label,
-        dueDate: 'Oct 20',
+        dueDate: widget.dueDate ?? 'Oct 20',
         reminderTime: widget.time,
+        taskId: widget.taskId,
+        userId: widget.userId,
       ),
     );
   }
@@ -49,41 +111,38 @@ class _TaskCardState extends State<TaskCard> {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    return GestureDetector(
-      onTap: () => _openTaskDetail(context),
-      child: Container(
-        decoration: BoxDecoration(
-          border: Border.all(
-            color: isDark
-                ? const Color(0xFF334155)
-                : const Color(0xFFE2E8F0),
-          ),
-          borderRadius: BorderRadius.circular(12),
-          color: isDark ? const Color(0xFF0F172A) : Colors.white,
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.05),
-              blurRadius: 4,
-            ),
-          ],
+    return Container(
+      decoration: BoxDecoration(
+        border: Border.all(
+          color: isDark
+              ? const Color(0xFF334155)
+              : const Color(0xFFE2E8F0),
         ),
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Checkbox(
-                  value: isChecked,
-                  onChanged: (value) {
-                    setState(() {
-                      isChecked = value ?? false;
-                    });
-                  },
-                  activeColor: const Color(0xFF4F46E5),
-                ),
-                Expanded(
+        borderRadius: BorderRadius.circular(12),
+        color: isDark ? const Color(0xFF0F172A) : Colors.white,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 4,
+          ),
+        ],
+      ),
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Checkbox(
+                value: isChecked,
+                onChanged: _updating ? null : _onCheckChanged,
+                activeColor: const Color(0xFF4F46E5),
+              ),
+              Expanded(
+                child: GestureDetector(
+                  onTap: () => _openTaskDetail(context),
+                  behavior: HitTestBehavior.opaque,
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -133,10 +192,11 @@ class _TaskCardState extends State<TaskCard> {
                     ],
                   ),
                 ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Row(
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
               children: [
                 if (widget.hasAISteps)
                   Padding(
@@ -211,7 +271,6 @@ class _TaskCardState extends State<TaskCard> {
             ),
           ],
         ),
-      ),
-    );
+      );
   }
 }

@@ -13,6 +13,8 @@ class TaskDetailArgs {
   final String category;
   final String dueDate;
   final String reminderTime;
+  final String? taskId;
+  final String? userId;
 
   const TaskDetailArgs({
     required this.taskTitle,
@@ -20,6 +22,8 @@ class TaskDetailArgs {
     required this.category,
     required this.dueDate,
     required this.reminderTime,
+    this.taskId,
+    this.userId,
   });
 }
 
@@ -72,6 +76,8 @@ abstract class AppRoutes {
             category: args.category,
             dueDate: args.dueDate,
             reminderTime: args.reminderTime,
+            taskId: args.taskId,
+            userId: args.userId,
           ),
         );
       case baseUrlSettings:

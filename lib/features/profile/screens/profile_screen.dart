@@ -147,7 +147,7 @@ class ProfileScreen extends StatelessWidget {
             ),
             const SizedBox(height: 24),
 
-            // 7-Day Velocity Chart
+            // Productivity Analysis Chart
             Container(
               decoration: BoxDecoration(
                 color: isDark ? const Color(0xFF1E293B) : Colors.white,
@@ -161,7 +161,7 @@ class ProfileScreen extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    AppStrings.sevenDayVelocity,
+                    AppStrings.productivityAnalysis,
                     style: const TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
@@ -184,58 +184,8 @@ class ProfileScreen extends StatelessWidget {
             ),
             const SizedBox(height: 24),
 
-            // Recent History Section
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  AppStrings.recentHistory,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                GestureDetector(
-                  onTap: () {
-                    // TODO: View all tasks
-                  },
-                  child: Text(
-                    AppStrings.viewAll,
-                    style: const TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w500,
-                      color: Color(0xFF4F46E5),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-
-            // Task History Items
-            TaskHistoryItem(
-              title: 'Finalize Project Proposal',
-              date: 'Today at 2:30 PM',
-              status: TaskStatus.done,
-            ),
-            const SizedBox(height: 8),
-            TaskHistoryItem(
-              title: 'Weekly Sync Meeting',
-              date: 'Today at 11:00 AM',
-              status: TaskStatus.done,
-            ),
-            const SizedBox(height: 8),
-            TaskHistoryItem(
-              title: 'Design System Update',
-              date: 'Yesterday at 5:45 PM',
-              status: TaskStatus.missed,
-            ),
-            const SizedBox(height: 8),
-            TaskHistoryItem(
-              title: 'Client Presentation',
-              date: 'Yesterday at 3:20 PM',
-              status: TaskStatus.done,
-            ),
+            // Recent History Section (from API: GET /api/tasks/user/{userId} without date)
+            const RecentHistorySection(),
             const SizedBox(height: 32),
 
             // Logout Button

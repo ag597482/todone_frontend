@@ -108,6 +108,7 @@ class AppStrings {
   static const String aiAssists = 'AI Assists';
   static const String completionRate = 'Completion Rate';
   static const String sevenDayVelocity = '7-Day Velocity';
+  static const String productivityAnalysis = 'Productivity Analysis';
   static const String recentHistory = 'Recent History';
   static const String viewAll = 'View all';
   static const String thisWeek = 'This week';
@@ -123,6 +124,13 @@ class AppStrings {
   static const String addProgressUpdate = 'Add progress update...';
   static const String markTaskCompleted = 'Mark Task Completed';
   static const String taskCompleted = 'Task Completed';
+  static const String deleteTask = 'Delete task';
+  static const String deleteTaskConfirm = 'Delete this task?';
+  static const String deleteTaskSuccess = 'Task deleted';
+  static const String cannotDeleteTask = 'Cannot delete this task';
+  static const String taskNotFound = 'Task not found';
+  static const String cancel = 'Cancel';
+  static const String delete = 'Delete';
 
   // Common
   static const String termsOfService = 'Terms of Service';

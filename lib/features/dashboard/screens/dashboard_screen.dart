@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:todone_frontend/core/constants/index.dart';
+import 'package:todone_frontend/core/service/index.dart';
 import 'package:todone_frontend/routes/index.dart';
 import '../widgets/index.dart';
 
@@ -13,18 +14,74 @@ class DashboardScreen extends StatefulWidget {
 class _DashboardScreenState extends State<DashboardScreen> {
   int _currentNavIndex = 0;
   final TextEditingController _searchController = TextEditingController();
+  final TaskService _taskService = TaskService();
+  final UserStorageService _userStorage = UserStorageService();
+
   late DateTime _selectedDate;
+  List<TaskModel> _tasks = [];
+  bool _loading = true;
+  String? _error;
+  String _userName = '';
+  String? _userId;
 
   @override
   void initState() {
     super.initState();
     _selectedDate = DateTime.now();
+    _loadUserAndTasks();
   }
 
   @override
   void dispose() {
     _searchController.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadUserAndTasks() async {
+    final user = await _userStorage.getUser();
+    setState(() {
+      _userName = user?.name.isNotEmpty == true ? user!.name : 'User';
+      _userId = user?.userId;
+    });
+    await _fetchTasks();
+  }
+
+  Future<void> _fetchTasks() async {
+    final user = await _userStorage.getUser();
+    if (user == null) {
+      setState(() {
+        _tasks = [];
+        _loading = false;
+        _error = 'Please log in again';
+      });
+      return;
+    }
+
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+
+    final result = await _taskService.getTasksForUser(
+      user.userId,
+      date: _selectedDate,
+    );
+
+    if (!mounted) return;
+    switch (result) {
+      case ApiSuccess(data: final list):
+        setState(() {
+          _tasks = list;
+          _loading = false;
+          _error = null;
+        });
+      case ApiFailure(message: final message):
+        setState(() {
+          _tasks = [];
+          _loading = false;
+          _error = message;
+        });
+    }
   }
 
   String _formatDate(DateTime date) {
@@ -56,6 +113,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       setState(() {
         _selectedDate = picked;
       });
+      await _fetchTasks();
     }
   }
 
@@ -106,7 +164,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               ),
                               const SizedBox(height: 4),
                               Text(
-                                '${AppStrings.goodMorning}, Aman',
+                                '${AppStrings.goodMorning}, $_userName',
                                 style: Theme.of(context)
                                     .textTheme
                                     .displayMedium
@@ -174,7 +232,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               vertical: 4,
                             ),
                             child: Text(
-                              '4 ${AppStrings.tasksLeft}',
+                              '${_tasks.length} ${AppStrings.tasksLeft}',
                               style: const TextStyle(
                                 fontSize: 12,
                                 fontWeight: FontWeight.bold,
@@ -185,41 +243,68 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         ],
                       ),
                       const SizedBox(height: 16),
-                      // Task Cards
-                      TaskCard(
-                        title: AppStrings.finalizeProjectProposal,
-                        description: AppStrings.projectProposalDesc,
-                        label: AppStrings.dueToday,
-                        labelColor: const Color(0xFF4F46E5),
-                        labelBgColor:
-                            const Color(0xFF4F46E5).withOpacity(0.1),
-                        time: '09:00 AM',
-                        hasAISteps: true,
-                        hasNotes: true,
-                      ),
-                      const SizedBox(height: 16),
-                      TaskCard(
-                        title: AppStrings.weeklySyncMeeting,
-                        description: AppStrings.weeklySyncDesc,
-                        label: AppStrings.rolledOver,
-                        labelColor: const Color(0xFFA16207),
-                        labelBgColor: const Color(0xFFFEF3C7),
-                        time: '11:30 AM',
-                        hasAISteps: true,
-                        hasNotes: false,
-                      ),
-                      const SizedBox(height: 16),
-                      TaskCard(
-                        title: AppStrings.designSystemUpdate,
-                        description: AppStrings.designSystemDesc,
-                        label: AppStrings.dueToday,
-                        labelColor: const Color(0xFF4F46E5),
-                        labelBgColor:
-                            const Color(0xFF4F46E5).withOpacity(0.1),
-                        time: '02:00 PM',
-                        hasAISteps: false,
-                        hasNotes: true,
-                      ),
+                      // Task list from API
+                      if (_loading)
+                        const Padding(
+                          padding: EdgeInsets.symmetric(vertical: 32),
+                          child: Center(child: CircularProgressIndicator()),
+                        )
+                      else if (_error != null)
+                        Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 32),
+                          child: Center(
+                            child: Text(
+                              _error!,
+                              style: TextStyle(
+                                color: isDark
+                                    ? const Color(0xFF94A3B8)
+                                    : const Color(0xFF64748B),
+                                fontSize: 14,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                          ),
+                        )
+                      else if (_tasks.isEmpty)
+                        Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 32),
+                          child: Center(
+                            child: Text(
+                              'No tasks for this date',
+                              style: TextStyle(
+                                color: isDark
+                                    ? const Color(0xFF94A3B8)
+                                    : const Color(0xFF64748B),
+                                fontSize: 14,
+                              ),
+                            ),
+                          ),
+                        )
+                      else
+                        ...List.generate(
+                          _tasks.length,
+                          (index) {
+                            final task = _tasks[index];
+                            return Padding(
+                              padding: const EdgeInsets.only(bottom: 16),
+                              child: TaskCard(
+                                title: task.title,
+                                description: task.description,
+                                label: task.displayLabel,
+                                labelColor: task.labelColor,
+                                labelBgColor: task.labelBgColor,
+                                time: task.timeDisplay,
+                                hasAISteps: task.hasAISteps,
+                                hasNotes: task.hasNotes,
+                                dueDate: task.dueDate,
+                                taskId: task.id,
+                                userId: _userId,
+                                initialChecked: task.status == 'COMPLETED',
+                                onStatusChanged: _fetchTasks,
+                              ),
+                            );
+                          },
+                        ),
                     ],
                   ),
                 ),
@@ -236,7 +321,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
           });
           // Navigate to Create Task on Create button tap
           if (index == 1) {
-            Navigator.pushNamed(context, AppRoutes.createTask);
+            Navigator.pushNamed(context, AppRoutes.createTask).then((_) {
+              if (mounted) _fetchTasks();
+            });
             setState(() {
               _currentNavIndex = 0;
             });

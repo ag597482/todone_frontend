@@ -66,6 +66,55 @@ class ApiClient {
     }
   }
 
+  /// PUT [path] with [body] as JSON.
+  Future<ApiResult<T>> put<T>(
+    String path,
+    Map<String, dynamic> body, {
+    T Function(dynamic)? fromJson,
+  }) async {
+    final baseUrl = await _baseUrlService.getBaseUrl();
+    final uri = Uri.parse(baseUrl + path);
+    final bodyBytes = utf8.encode(jsonEncode(body));
+    try {
+      final response = await _client
+          .put(
+            uri,
+            headers: {
+              'Content-Type': ApiConstants.contentType,
+              'Accept': '*/*',
+            },
+            body: bodyBytes,
+          )
+          .timeout(
+            ApiConstants.connectionTimeout,
+            onTimeout: () => throw Exception('Connection timeout'),
+          );
+
+      final decoded = response.body.isNotEmpty
+          ? (jsonDecode(response.body) as Map<String, dynamic>?)
+          : null;
+
+      final success = decoded?['success'] == true;
+      final message = decoded?['message'] as String? ?? 'Request failed';
+      final data = decoded?['data'];
+
+      if (success && data != null) {
+        if (fromJson != null) {
+          return ApiSuccess(fromJson(data));
+        }
+        return ApiSuccess(data as T);
+      }
+
+      return ApiFailure(
+        message,
+        statusCode: response.statusCode,
+      );
+    } on Exception catch (e) {
+      final msg = e.toString().replaceFirst('Exception: ', '');
+      return ApiFailure(msg.contains('timeout') ? 'Connection timeout' : msg);
+    }
+  }
+
   /// GET [path]. Optional [fromJson] to map response data to T.
   Future<ApiResult<T>> get<T>(
     String path, {
@@ -96,6 +145,51 @@ class ApiClient {
 
       if (success && data != null) {
         if (fromJson != null) {
+          return ApiSuccess(fromJson(data));
+        }
+        return ApiSuccess(data as T);
+      }
+
+      return ApiFailure(
+        message,
+        statusCode: response.statusCode,
+      );
+    } on Exception catch (e) {
+      final msg = e.toString().replaceFirst('Exception: ', '');
+      return ApiFailure(msg.contains('timeout') ? 'Connection timeout' : msg);
+    }
+  }
+
+  /// DELETE [path]. Response data may be null (e.g. task delete returns data: null).
+  Future<ApiResult<T>> delete<T>(
+    String path, {
+    T Function(dynamic)? fromJson,
+  }) async {
+    final baseUrl = await _baseUrlService.getBaseUrl();
+    final uri = Uri.parse(baseUrl + path);
+    try {
+      final response = await _client
+          .delete(
+            uri,
+            headers: {
+              'Accept': ApiConstants.contentType,
+            },
+          )
+          .timeout(
+            ApiConstants.connectionTimeout,
+            onTimeout: () => throw Exception('Connection timeout'),
+          );
+
+      final decoded = response.body.isNotEmpty
+          ? (jsonDecode(response.body) as Map<String, dynamic>?)
+          : null;
+
+      final success = decoded?['success'] == true;
+      final message = decoded?['message'] as String? ?? 'Request failed';
+      final data = decoded?['data'];
+
+      if (success) {
+        if (data != null && fromJson != null) {
           return ApiSuccess(fromJson(data));
         }
         return ApiSuccess(data as T);

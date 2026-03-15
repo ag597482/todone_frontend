@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:todone_frontend/core/constants/index.dart';
+import 'package:todone_frontend/core/service/api_result.dart';
+import 'package:todone_frontend/core/service/task_service.dart';
+import 'package:todone_frontend/core/service/user_storage_service.dart';
 import '../widgets/index.dart';
 
 class CreateTaskScreen extends StatefulWidget {
@@ -13,6 +16,9 @@ class _CreateTaskScreenState extends State<CreateTaskScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
   int _currentTabIndex = 0;
+  final _oneTimeFormKey = GlobalKey<OneTimeTaskFormState>();
+  final _taskService = TaskService();
+  final _userStorage = UserStorageService();
 
   @override
   void initState() {
@@ -29,6 +35,54 @@ class _CreateTaskScreenState extends State<CreateTaskScreen>
   void dispose() {
     _tabController.dispose();
     super.dispose();
+  }
+
+  Future<void> _onSaveTapped() async {
+    if (_currentTabIndex != 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Routine saved!')),
+      );
+      return;
+    }
+
+    final user = await _userStorage.getUser();
+    if (user == null) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please log in again')),
+      );
+      return;
+    }
+
+    final payload = _oneTimeFormKey.currentState?.getTaskPayload();
+    if (payload == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please enter task name and due date'),
+        ),
+      );
+      return;
+    }
+
+    final result = await _taskService.createTask(
+      user.userId,
+      name: payload['name'] as String,
+      description: payload['description'] as String,
+      dueDate: payload['dueDate'] as String,
+    );
+
+    if (!mounted) return;
+    switch (result) {
+      case ApiSuccess():
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Task created')),
+        );
+        Navigator.pop(context);
+      case ApiFailure(:final message):
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(message)),
+        );
+    }
   }
 
   @override
@@ -113,9 +167,9 @@ class _CreateTaskScreenState extends State<CreateTaskScreen>
       ),
       body: TabBarView(
         controller: _tabController,
-        children: const [
-          OneTimeTaskForm(),
-          RepetitiveTaskForm(),
+        children: [
+          OneTimeTaskForm(key: _oneTimeFormKey),
+          const RepetitiveTaskForm(),
         ],
       ),
       bottomNavigationBar: Container(
@@ -140,17 +194,7 @@ class _CreateTaskScreenState extends State<CreateTaskScreen>
             child: Padding(
               padding: const EdgeInsets.all(16),
               child: GestureDetector(
-                onTap: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(
-                        _currentTabIndex == 0
-                            ? 'Task saved!'
-                            : 'Routine saved!',
-                      ),
-                    ),
-                  );
-                },
+                onTap: () => _onSaveTapped(),
                 child: Container(
                   decoration: BoxDecoration(
                     color: const Color(0xFF4F46E5),

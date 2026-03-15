@@ -5,15 +5,29 @@ class OneTimeTaskForm extends StatefulWidget {
   const OneTimeTaskForm({super.key});
 
   @override
-  State<OneTimeTaskForm> createState() => _OneTimeTaskFormState();
+  State<OneTimeTaskForm> createState() => OneTimeTaskFormState();
 }
 
-class _OneTimeTaskFormState extends State<OneTimeTaskForm> {
+class OneTimeTaskFormState extends State<OneTimeTaskForm> {
   final _taskNameController = TextEditingController();
   final _descriptionController = TextEditingController();
   final _notesControllers = <TextEditingController>[];
   DateTime? _selectedDate;
   TimeOfDay? _selectedTime;
+
+  /// Returns task payload for API: name, description, dueDate (yyyy-MM-dd), or null if invalid.
+  Map<String, dynamic>? getTaskPayload() {
+    final name = _taskNameController.text.trim();
+    if (name.isEmpty || _selectedDate == null) return null;
+    final d = _selectedDate!;
+    final dueDate =
+        '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+    return {
+      'name': name,
+      'description': _descriptionController.text.trim(),
+      'dueDate': dueDate,
+    };
+  }
 
   @override
   void dispose() {

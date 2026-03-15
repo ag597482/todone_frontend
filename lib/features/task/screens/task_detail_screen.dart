@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:todone_frontend/core/constants/index.dart';
+import 'package:todone_frontend/core/service/index.dart';
+import 'package:todone_frontend/routes/index.dart';
 
 class TaskDetailScreen extends StatefulWidget {
   final String taskTitle;
@@ -7,6 +9,8 @@ class TaskDetailScreen extends StatefulWidget {
   final String category;
   final String dueDate;
   final String reminderTime;
+  final String? taskId;
+  final String? userId;
 
   const TaskDetailScreen({
     super.key,
@@ -15,6 +19,8 @@ class TaskDetailScreen extends StatefulWidget {
     required this.category,
     required this.dueDate,
     required this.reminderTime,
+    this.taskId,
+    this.userId,
   });
 
   @override
@@ -23,18 +29,96 @@ class TaskDetailScreen extends StatefulWidget {
 
 class _TaskDetailScreenState extends State<TaskDetailScreen> {
   final TextEditingController _progressController = TextEditingController();
+  final TaskService _taskService = TaskService();
   late List<Map<String, dynamic>> steps;
   bool isTaskCompleted = false;
+
+  TaskModel? _task;
+  bool _loading = true;
+  String? _error;
 
   @override
   void initState() {
     super.initState();
-    // AI Generated Steps
     steps = [
       {'title': 'Buy gym clothes', 'completed': false},
       {'title': 'Find nearby gym', 'completed': false},
       {'title': 'Pack your gym bag tonight', 'completed': false},
     ];
+    if (widget.taskId != null) {
+      _fetchTask();
+    } else {
+      setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _fetchTask() async {
+    if (widget.taskId == null) return;
+    final result = await _taskService.getTask(widget.taskId!);
+    if (!mounted) return;
+    switch (result) {
+      case ApiSuccess(data: final task):
+        setState(() {
+          _task = task;
+          _loading = false;
+          _error = null;
+          isTaskCompleted = task.status == 'COMPLETED';
+        });
+      case ApiFailure(message: final message):
+        setState(() {
+          _task = null;
+          _loading = false;
+          _error = message;
+        });
+    }
+  }
+
+  Future<void> _deleteTask() async {
+    if (widget.taskId == null || widget.userId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text(AppStrings.cannotDeleteTask)),
+      );
+      return;
+    }
+    final result = await _taskService.deleteTask(widget.taskId!, widget.userId!);
+    if (!mounted) return;
+    switch (result) {
+      case ApiSuccess():
+        Navigator.of(context).pushNamedAndRemoveUntil(
+          AppRoutes.dashboard,
+          (route) => false,
+        );
+      case ApiFailure(message: final message):
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(message)),
+        );
+    }
+  }
+
+  void _showDeleteConfirm() {
+    showDialog<void>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text(AppStrings.deleteTask),
+        content: const Text(AppStrings.deleteTaskConfirm),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text(AppStrings.cancel),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              _deleteTask();
+            },
+            style: TextButton.styleFrom(
+              foregroundColor: const Color(0xFFDC2626),
+            ),
+            child: const Text(AppStrings.delete),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -71,6 +155,12 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     });
   }
 
+  String get _title => _task?.title ?? widget.taskTitle;
+  String get _description => _task?.description ?? widget.taskDescription;
+  String get _category => _task?.displayLabel ?? widget.category;
+  String get _dueDate => _task?.dueDate ?? widget.dueDate;
+  String get _reminderTime => _task?.timeDisplay ?? widget.reminderTime;
+
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -86,135 +176,165 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
           icon: const Icon(Icons.arrow_back),
           onPressed: () => Navigator.of(context).pop(),
         ),
-        title: const Text('Task Detail'),
+        title: const Text(AppStrings.taskDetail),
         actions: [
-          IconButton(
+          PopupMenuButton<String>(
             icon: const Icon(Icons.more_vert),
-            onPressed: () {
-              // TODO: Show more options menu
+            onSelected: (value) {
+              if (value == 'delete') _showDeleteConfirm();
             },
-          ),
-        ],
-      ),
-      body: SingleChildScrollView(
-        child: Column(
-          children: [
-            // Task Info Card
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Container(
-                decoration: BoxDecoration(
-                  color: isDark ? const Color(0xFF1E293B) : Colors.white,
-                  border: Border.all(
-                    color: isDark
-                        ? const Color(0xFF334155)
-                        : const Color(0xFFE2E8F0),
-                  ),
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                padding: const EdgeInsets.all(20),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+            itemBuilder: (context) => [
+              const PopupMenuItem(
+                value: 'delete',
+                child: Row(
                   children: [
-                    // Category Badge
-                    Container(
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF4F46E5).withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 4,
-                      ),
-                      child: Text(
-                        widget.category.toUpperCase(),
-                        style: const TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 0.5,
-                          color: Color(0xFF4F46E5),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-
-                    // Task Title
-                    Text(
-                      widget.taskTitle,
-                      style: const TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-
-                    // Task Description
-                    Text(
-                      widget.taskDescription,
-                      style: TextStyle(
-                        fontSize: 16,
-                        color: isDark
-                            ? const Color(0xFFCBD5E1)
-                            : const Color(0xFF475569),
-                        height: 1.5,
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-
-                    // Meta Info (Due Date & Reminder)
-                    Container(
-                      decoration: BoxDecoration(
-                        border: Border(
-                          top: BorderSide(
-                            color: isDark
-                                ? const Color(0xFF334155)
-                                : const Color(0xFFE2E8F0),
-                          ),
-                        ),
-                      ),
-                      padding: const EdgeInsets.only(top: 16),
-                      child: Row(
-                        children: [
-                          Icon(
-                            Icons.calendar_today,
-                            size: 16,
-                            color: const Color(0xFF4F46E5),
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            '${AppStrings.due}: ${widget.dueDate}',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: isDark
-                                  ? const Color(0xFF94A3B8)
-                                  : const Color(0xFF64748B),
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                          const SizedBox(width: 24),
-                          Icon(
-                            Icons.notifications_active,
-                            size: 16,
-                            color: const Color(0xFF4F46E5),
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            '${AppStrings.daily} ${widget.reminderTime}',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: isDark
-                                  ? const Color(0xFF94A3B8)
-                                  : const Color(0xFF64748B),
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
+                    Icon(Icons.delete_outline, color: Color(0xFFDC2626), size: 22),
+                    SizedBox(width: 12),
+                    Text(AppStrings.deleteTask),
                   ],
                 ),
               ),
-            ),
+            ],
+          ),
+        ],
+      ),
+      body: _loading
+          ? const Center(child: CircularProgressIndicator())
+          : _error != null
+              ? Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Text(
+                      _error!,
+                      style: TextStyle(
+                        fontSize: 16,
+                        color: isDark
+                            ? const Color(0xFF94A3B8)
+                            : const Color(0xFF64748B),
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                )
+              : SingleChildScrollView(
+                  child: Column(
+                    children: [
+                      // Task Info Card
+                      Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: isDark ? const Color(0xFF1E293B) : Colors.white,
+                            border: Border.all(
+                              color: isDark
+                                  ? const Color(0xFF334155)
+                                  : const Color(0xFFE2E8F0),
+                            ),
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          padding: const EdgeInsets.all(20),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              // Category Badge
+                              Container(
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFF4F46E5).withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 4,
+                                ),
+                                child: Text(
+                                  _category.toUpperCase(),
+                                  style: const TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.bold,
+                                    letterSpacing: 0.5,
+                                    color: Color(0xFF4F46E5),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+
+                              // Task Title
+                              Text(
+                                _title,
+                                style: const TextStyle(
+                                  fontSize: 24,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              const SizedBox(height: 16),
+
+                              // Task Description
+                              Text(
+                                _description,
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  color: isDark
+                                      ? const Color(0xFFCBD5E1)
+                                      : const Color(0xFF475569),
+                                  height: 1.5,
+                                ),
+                              ),
+                              const SizedBox(height: 16),
+
+                              // Meta Info (Due Date & Reminder)
+                              Container(
+                                decoration: BoxDecoration(
+                                  border: Border(
+                                    top: BorderSide(
+                                      color: isDark
+                                          ? const Color(0xFF334155)
+                                          : const Color(0xFFE2E8F0),
+                                    ),
+                                  ),
+                                ),
+                                padding: const EdgeInsets.only(top: 16),
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      Icons.calendar_today,
+                                      size: 16,
+                                      color: const Color(0xFF4F46E5),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      '${AppStrings.due}: $_dueDate',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: isDark
+                                            ? const Color(0xFF94A3B8)
+                                            : const Color(0xFF64748B),
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 24),
+                                    Icon(
+                                      Icons.notifications_active,
+                                      size: 16,
+                                      color: const Color(0xFF4F46E5),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      '${AppStrings.daily} $_reminderTime',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: isDark
+                                            ? const Color(0xFF94A3B8)
+                                            : const Color(0xFF64748B),
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
 
             // AI Generated Steps Section
             Padding(
