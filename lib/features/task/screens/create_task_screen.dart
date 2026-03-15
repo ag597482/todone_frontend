@@ -69,6 +69,7 @@ class _CreateTaskScreenState extends State<CreateTaskScreen>
       name: payload['name'] as String,
       description: payload['description'] as String,
       dueDate: payload['dueDate'] as String,
+      meta: payload['meta'] as Map<String, dynamic>?,
     );
 
     if (!mounted) return;

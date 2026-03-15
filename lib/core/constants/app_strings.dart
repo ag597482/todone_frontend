@@ -83,9 +83,12 @@ class AppStrings {
   static const String descriptionPlaceholder = 'Add more details about this task...';
   static const String dueDate = 'Due Date';
   static const String reminder = 'Reminder';
-  static const String generateAISteps = 'Generate AI Steps';
+  static const String generateAISteps = 'Generated AI Steps';
   static const String notesLabel = 'Notes (Bullet Points)';
   static const String addPoint = 'Add Point';
+  static const String subtasksLabel = 'Subtasks';
+  static const String addSubtask = 'Add subtask';
+  static const String subtaskHint = 'Subtask...';
   static const String saveTask = 'Save Task';
   static const String startDate = 'Start Date';
   static const String endDate = 'End Date';

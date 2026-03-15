@@ -15,18 +15,29 @@ class OneTimeTaskFormState extends State<OneTimeTaskForm> {
   DateTime? _selectedDate;
   TimeOfDay? _selectedTime;
 
-  /// Returns task payload for API: name, description, dueDate (yyyy-MM-dd), or null if invalid.
+  /// Returns task payload for API: name, description, dueDate (yyyy-MM-dd), meta.steps (if any), or null if invalid.
   Map<String, dynamic>? getTaskPayload() {
     final name = _taskNameController.text.trim();
     if (name.isEmpty || _selectedDate == null) return null;
     final d = _selectedDate!;
     final dueDate =
         '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
-    return {
+    final steps = <Map<String, dynamic>>[];
+    for (var i = 0; i < _notesControllers.length; i++) {
+      final value = _notesControllers[i].text.trim();
+      if (value.isNotEmpty) {
+        steps.add({'value': value, 'completed': false});
+      }
+    }
+    final payload = <String, dynamic>{
       'name': name,
       'description': _descriptionController.text.trim(),
       'dueDate': dueDate,
     };
+    if (steps.isNotEmpty) {
+      payload['meta'] = {'steps': steps};
+    }
+    return payload;
   }
 
   @override
@@ -330,7 +341,7 @@ class OneTimeTaskFormState extends State<OneTimeTaskForm> {
             ),
           ),
           const SizedBox(height: 24),
-          // Notes Section
+          // Subtasks Section (sent as meta.steps in POST /api/tasks)
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -338,7 +349,7 @@ class OneTimeTaskFormState extends State<OneTimeTaskForm> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                    AppStrings.notesLabel,
+                    AppStrings.subtasksLabel,
                     style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.bold,
@@ -357,7 +368,7 @@ class OneTimeTaskFormState extends State<OneTimeTaskForm> {
                         ),
                         const SizedBox(width: 4),
                         Text(
-                          AppStrings.addPoint,
+                          AppStrings.addSubtask,
                           style: const TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.bold,
@@ -392,7 +403,7 @@ class OneTimeTaskFormState extends State<OneTimeTaskForm> {
                           child: TextField(
                             controller: _notesControllers[index],
                             decoration: InputDecoration(
-                              hintText: 'Sub-point...',
+                              hintText: AppStrings.subtaskHint,
                               border: InputBorder.none,
                               enabledBorder: UnderlineInputBorder(
                                 borderSide: BorderSide(
