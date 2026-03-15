@@ -27,6 +27,18 @@ class UserStorageService {
     }
   }
 
+  /// Updates the stored user's name (e.g. after profile update).
+  Future<void> updateStoredUserName(String name) async {
+    final user = await getUser();
+    if (user == null) return;
+    await saveUser(LoginVerifyResponse(
+      userId: user.userId,
+      name: name.trim(),
+      phoneNumber: user.phoneNumber,
+      metadata: user.metadata,
+    ));
+  }
+
   /// Removes stored user (e.g. on logout).
   Future<void> clearUser() async {
     final prefs = await SharedPreferences.getInstance();

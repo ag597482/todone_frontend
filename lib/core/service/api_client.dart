@@ -98,11 +98,11 @@ class ApiClient {
       final message = decoded?['message'] as String? ?? 'Request failed';
       final data = decoded?['data'];
 
-      if (success && data != null) {
+      if (success) {
         if (fromJson != null) {
-          return ApiSuccess(fromJson(data));
+          return ApiSuccess(fromJson(data ?? {}));
         }
-        return ApiSuccess(data as T);
+        if (data != null) return ApiSuccess(data as T);
       }
 
       return ApiFailure(

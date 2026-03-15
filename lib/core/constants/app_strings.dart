@@ -30,7 +30,7 @@ class AppStrings {
   static const String baseUrlSaved = 'Base URL saved';
 
   // Dashboard
-  static const String goodMorning = 'Good Morning';
+  static const String greetingString = 'Hey';
   static const String todaysTasks = "Today's Tasks";
   static const String tasksLeft = 'Left';
   static const String searchTasks = 'Search tasks...';

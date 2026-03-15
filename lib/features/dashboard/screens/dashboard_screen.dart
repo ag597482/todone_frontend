@@ -13,7 +13,6 @@ class DashboardScreen extends StatefulWidget {
 
 class _DashboardScreenState extends State<DashboardScreen> {
   int _currentNavIndex = 0;
-  final TextEditingController _searchController = TextEditingController();
   final TaskService _taskService = TaskService();
   final UserStorageService _userStorage = UserStorageService();
 
@@ -23,6 +22,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   String? _error;
   String _userName = '';
   String? _userId;
+  bool _showOnlyPending = false;
 
   @override
   void initState() {
@@ -31,11 +31,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
     _loadUserAndTasks();
   }
 
-  @override
-  void dispose() {
-    _searchController.dispose();
-    super.dispose();
-  }
+  List<TaskModel> get _displayedTasks => _showOnlyPending
+      ? _tasks.where((t) => t.status != 'COMPLETED').toList()
+      : _tasks;
 
   Future<void> _loadUserAndTasks() async {
     final user = await _userStorage.getUser();
@@ -164,7 +162,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               ),
                               const SizedBox(height: 4),
                               Text(
-                                '${AppStrings.goodMorning}, $_userName',
+                                '${AppStrings.greetingString}, $_userName',
                                 style: Theme.of(context)
                                     .textTheme
                                     .displayMedium
@@ -180,30 +178,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   ],
                 ),
               ),
-              // Search Bar
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24),
-                child: TextField(
-                  controller: _searchController,
-                  decoration: InputDecoration(
-                    hintText: AppStrings.searchTasks,
-                    prefixIcon: const Icon(Icons.search),
-                    filled: true,
-                    fillColor: isDark
-                        ? const Color(0xFF1E293B)
-                        : const Color(0xFFF1F5F9),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide.none,
-                    ),
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 12,
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 24),
+              const SizedBox(height: 16),
               // Tasks Section
               Expanded(
                 child: SingleChildScrollView(
@@ -242,6 +217,29 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           ),
                         ],
                       ),
+                      const SizedBox(height: 12),
+                      Row(
+                        children: [
+                          Text(
+                            'Show pending only',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500,
+                              color: isDark
+                                  ? const Color(0xFF94A3B8)
+                                  : const Color(0xFF64748B),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Switch(
+                            value: _showOnlyPending,
+                            onChanged: (value) {
+                              setState(() => _showOnlyPending = value);
+                            },
+                            activeTrackColor: const Color(0xFF4F46E5),
+                          ),
+                        ],
+                      ),
                       const SizedBox(height: 16),
                       // Task list from API
                       if (_loading)
@@ -265,12 +263,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             ),
                           ),
                         )
-                      else if (_tasks.isEmpty)
+                      else if (_displayedTasks.isEmpty)
                         Padding(
                           padding: const EdgeInsets.symmetric(vertical: 32),
                           child: Center(
                             child: Text(
-                              'No tasks for this date',
+                              _showOnlyPending
+                                  ? 'No pending tasks'
+                                  : 'No tasks for this date',
                               style: TextStyle(
                                 color: isDark
                                     ? const Color(0xFF94A3B8)
@@ -282,9 +282,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         )
                       else
                         ...List.generate(
-                          _tasks.length,
+                          _displayedTasks.length,
                           (index) {
-                            final task = _tasks[index];
+                            final task = _displayedTasks[index];
                             return Padding(
                               padding: const EdgeInsets.only(bottom: 16),
                               child: TaskCard(

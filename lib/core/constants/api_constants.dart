@@ -18,6 +18,10 @@ class ApiConstants {
   // Endpoints - User
   static const String getUserEndpoint = '/user/profile';
   static const String updateUserEndpoint = '/user/profile';
+  /// GET /api/users/{userId}/profile — returns user, tasks, completedTasksCount, pendingTasksCount
+  static String userProfilePath(String userId) => '/api/users/$userId/profile';
+  /// PUT /api/users/{userId} — body: { name }
+  static String updateUserPath(String userId) => '/api/users/$userId';
 
   // Endpoints - Tasks
   static const String getTasksEndpoint = '/tasks';

@@ -2,15 +2,13 @@ import 'package:flutter/material.dart';
 
 class ProfileHeaderWidget extends StatelessWidget {
   final String name;
-  final String title;
-  final String avatarUrl;
+  final String subtitle;
   final VoidCallback onEditProfile;
 
   const ProfileHeaderWidget({
     super.key,
     required this.name,
-    required this.title,
-    required this.avatarUrl,
+    this.subtitle = '',
     required this.onEditProfile,
   });
 
@@ -44,7 +42,7 @@ class ProfileHeaderWidget extends StatelessWidget {
               children: [
                 Center(
                   child: Text(
-                    name[0].toUpperCase(),
+                    name.isNotEmpty ? name[0].toUpperCase() : '?',
                     style: const TextStyle(
                       fontSize: 28,
                       fontWeight: FontWeight.bold,
@@ -88,16 +86,18 @@ class ProfileHeaderWidget extends StatelessWidget {
                     fontWeight: FontWeight.bold,
                   ),
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  title,
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: isDark
-                        ? const Color(0xFF94A3B8)
-                        : const Color(0xFF64748B),
+                if (subtitle.isNotEmpty) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    subtitle,
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: isDark
+                          ? const Color(0xFF94A3B8)
+                          : const Color(0xFF64748B),
+                    ),
                   ),
-                ),
+                ],
                 const SizedBox(height: 8),
                 GestureDetector(
                   onTap: onEditProfile,
