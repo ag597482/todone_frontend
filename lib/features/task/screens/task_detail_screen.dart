@@ -28,7 +28,6 @@ class TaskDetailScreen extends StatefulWidget {
 }
 
 class _TaskDetailScreenState extends State<TaskDetailScreen> {
-  final TextEditingController _progressController = TextEditingController();
   final TaskService _taskService = TaskService();
   bool isTaskCompleted = false;
 
@@ -42,6 +41,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
   bool _isEditing = false;
   final TextEditingController _titleController = TextEditingController();
   final TextEditingController _descriptionController = TextEditingController();
+  final TextEditingController _timeController = TextEditingController();
   final List<TextEditingController> _stepControllers = [];
   final List<bool> _stepCompleted = [];
   bool _savingEdits = false;
@@ -127,9 +127,9 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
 
   @override
   void dispose() {
-    _progressController.dispose();
     _titleController.dispose();
     _descriptionController.dispose();
+    _timeController.dispose();
     for (final c in _stepControllers) {
       c.dispose();
     }
@@ -158,16 +158,6 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(message)),
         );
-    }
-  }
-
-  void _submitProgress() {
-    if (_progressController.text.isNotEmpty) {
-      // TODO: Handle progress update submission
-      _progressController.clear();
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Progress updated')),
-      );
     }
   }
 
@@ -250,6 +240,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
 
     _titleController.text = task.title;
     _descriptionController.text = task.description;
+    _timeController.text = task.reminderTime ?? '';
 
     for (final c in _stepControllers) {
       c.dispose();
@@ -326,6 +317,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
       _savingEdits = true;
     });
 
+    final timeStr = _timeController.text.trim();
     final result = await _taskService.updateTaskFull(
       taskId: task.id,
       userId: userId,
@@ -336,6 +328,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
       doneDate: null,
       status: task.status,
       authorId: userId,
+      time: timeStr.isNotEmpty ? timeStr : null,
     );
 
     if (!mounted) return;
@@ -568,16 +561,37 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                                       color: const Color(0xFF4F46E5),
                                     ),
                                     const SizedBox(width: 8),
-                                    Text(
-                                      '${AppStrings.daily} $_reminderTime',
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        color: isDark
-                                            ? const Color(0xFF94A3B8)
-                                            : const Color(0xFF64748B),
-                                        fontWeight: FontWeight.w500,
-                                      ),
-                                    ),
+                                    _isEditing
+                                        ? SizedBox(
+                                            width: 80,
+                                            child: TextField(
+                                              controller: _timeController,
+                                              decoration: InputDecoration(
+                                                hintText: '14:30',
+                                                isDense: true,
+                                                contentPadding: const EdgeInsets.symmetric(
+                                                    horizontal: 8, vertical: 4),
+                                                border: const OutlineInputBorder(),
+                                              ),
+                                              style: TextStyle(
+                                                fontSize: 12,
+                                                color: isDark
+                                                    ? const Color(0xFFE2E8F0)
+                                                    : const Color(0xFF1E293B),
+                                              ),
+                                              keyboardType: TextInputType.datetime,
+                                            ),
+                                          )
+                                        : Text(
+                                            '${AppStrings.daily} $_reminderTime',
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              color: isDark
+                                                  ? const Color(0xFF94A3B8)
+                                                  : const Color(0xFF64748B),
+                                              fontWeight: FontWeight.w500,
+                                            ),
+                                          ),
                                   ],
                                 ),
                               ),
@@ -825,107 +839,6 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
               ),
               const SizedBox(height: 20),
             ],
-
-            // AI Suggestion Box
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Container(
-                    width: 32,
-                    height: 32,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF4F46E5),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: const Icon(
-                      Icons.flash_on,
-                      color: Colors.white,
-                      size: 16,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Container(
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF4F46E5).withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(
-                          color: const Color(0xFF4F46E5).withOpacity(0.2),
-                        ),
-                      ),
-                      padding: const EdgeInsets.all(12),
-                      child: Text(
-                        AppStrings.aiSuggestion,
-                        style: TextStyle(
-                          fontSize: 13,
-                          height: 1.5,
-                          color: isDark
-                              ? const Color(0xFFE2E8F0)
-                              : const Color(0xFF1E293B),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 20),
-
-            // Progress Input
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Container(
-                decoration: BoxDecoration(
-                  border: Border.all(
-                    color: isDark
-                        ? const Color(0xFF334155)
-                        : const Color(0xFFE2E8F0),
-                  ),
-                  borderRadius: BorderRadius.circular(12),
-                  color: isDark ? const Color(0xFF1E293B) : Colors.white,
-                ),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: TextField(
-                        controller: _progressController,
-                        decoration: InputDecoration(
-                          hintText: AppStrings.addProgressUpdate,
-                          border: InputBorder.none,
-                          contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 12,
-                          ),
-                          hintStyle: TextStyle(
-                            color: isDark
-                                ? const Color(0xFF64748B)
-                                : const Color(0xFFA0AEC0),
-                          ),
-                        ),
-                        style: TextStyle(
-                          color: isDark
-                              ? const Color(0xFFE2E8F0)
-                              : const Color(0xFF1E293B),
-                        ),
-                      ),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.only(right: 8),
-                      child: IconButton(
-                        icon: const Icon(
-                          Icons.send,
-                          color: Color(0xFF4F46E5),
-                        ),
-                        onPressed: _submitProgress,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 20),
 
             // Mark Task Completed Button
             Padding(

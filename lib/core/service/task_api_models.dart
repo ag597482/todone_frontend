@@ -61,12 +61,23 @@ class TaskModel {
   static TaskModel fromJson(dynamic json) {
     final map = json is Map<String, dynamic> ? json : Map<String, dynamic>.from(json as Map);
     final stepsList = _parseSteps(map);
+    String? reminder;
+    // Prefer explicit reminder fields, then top-level time, then meta.time
+    if (map['reminderTime'] != null) {
+      reminder = map['reminderTime'].toString();
+    } else if (map['reminder_time'] != null) {
+      reminder = map['reminder_time'].toString();
+    } else if (map['time'] != null) {
+      reminder = map['time'].toString();
+    } else if (map['meta'] is Map && (map['meta'] as Map)['time'] != null) {
+      reminder = (map['meta'] as Map)['time'].toString();
+    }
     return TaskModel(
       id: map['task_id']?.toString() ?? map['id']?.toString() ?? '',
       title: map['name'] as String? ?? map['title'] as String? ?? '',
       description: map['description'] as String? ?? '',
       dueDate: map['dueDate']?.toString() ?? map['due_date']?.toString(),
-      reminderTime: map['reminderTime']?.toString() ?? map['reminder_time']?.toString() ?? map['time']?.toString(),
+      reminderTime: reminder,
       status: map['status']?.toString() ?? map['label']?.toString() ?? map['category']?.toString(),
       steps: stepsList,
       hasAISteps: map['hasAISteps'] == true ||
@@ -110,5 +121,26 @@ class TaskModel {
       } catch (_) {}
     }
     return '--';
+  }
+
+  /// Combined DateTime for sorting: uses dueDate + reminderTime (HH:mm) when available.
+  /// Falls back to dueDate at midnight; returns null if parsing fails.
+  DateTime? get sortDateTime {
+    if (dueDate == null || dueDate!.isEmpty) return null;
+    try {
+      final baseDate = DateTime.parse(dueDate!);
+      if (reminderTime == null || reminderTime!.isEmpty) {
+        return DateTime(baseDate.year, baseDate.month, baseDate.day);
+      }
+      final parts = reminderTime!.split(':');
+      if (parts.length >= 2) {
+        final hour = int.tryParse(parts[0]) ?? 0;
+        final minute = int.tryParse(parts[1]) ?? 0;
+        return DateTime(baseDate.year, baseDate.month, baseDate.day, hour, minute);
+      }
+      return DateTime(baseDate.year, baseDate.month, baseDate.day);
+    } catch (_) {
+      return null;
+    }
   }
 }

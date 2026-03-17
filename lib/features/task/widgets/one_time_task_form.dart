@@ -1,8 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:todone_frontend/core/constants/index.dart';
 
+/// Callback: (taskName, taskDescription) -> list of step strings or null on error.
+typedef GenerateStepsCallback = Future<List<String>?> Function(
+  String taskName,
+  String taskDescription,
+);
+
 class OneTimeTaskForm extends StatefulWidget {
-  const OneTimeTaskForm({super.key});
+  const OneTimeTaskForm({
+    super.key,
+    this.onGenerateAISteps,
+  });
+
+  final GenerateStepsCallback? onGenerateAISteps;
 
   @override
   State<OneTimeTaskForm> createState() => OneTimeTaskFormState();
@@ -14,8 +25,9 @@ class OneTimeTaskFormState extends State<OneTimeTaskForm> {
   final _notesControllers = <TextEditingController>[];
   DateTime? _selectedDate;
   TimeOfDay? _selectedTime;
+  bool _generatingSteps = false;
 
-  /// Returns task payload for API: name, description, dueDate (yyyy-MM-dd), meta.steps (if any), or null if invalid.
+  /// Returns task payload for API: name, description, dueDate (yyyy-MM-dd), time (HH:mm), meta.steps (if any), or null if invalid.
   Map<String, dynamic>? getTaskPayload() {
     final name = _taskNameController.text.trim();
     if (name.isEmpty || _selectedDate == null) return null;
@@ -34,6 +46,11 @@ class OneTimeTaskFormState extends State<OneTimeTaskForm> {
       'description': _descriptionController.text.trim(),
       'dueDate': dueDate,
     };
+    if (_selectedTime != null) {
+      final t = _selectedTime!;
+      payload['time'] =
+          '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}';
+    }
     if (steps.isNotEmpty) {
       payload['meta'] = {'steps': steps};
     }
@@ -61,6 +78,50 @@ class OneTimeTaskFormState extends State<OneTimeTaskForm> {
       _notesControllers[index].dispose();
       _notesControllers.removeAt(index);
     });
+  }
+
+  /// Populates subtask fields with [steps] (editable). Disposes existing controllers.
+  void setGeneratedSteps(List<String> steps) {
+    for (final c in _notesControllers) {
+      c.dispose();
+    }
+    _notesControllers.clear();
+    for (final step in steps) {
+      _notesControllers.add(TextEditingController(text: step));
+    }
+    setState(() {});
+  }
+
+  Future<void> _onGenerateAISteps() async {
+    final callback = widget.onGenerateAISteps;
+    if (callback == null) return;
+    final name = _taskNameController.text.trim();
+    if (name.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Enter a task name to generate steps')),
+        );
+      }
+      return;
+    }
+    setState(() => _generatingSteps = true);
+    final steps = await callback(name, _descriptionController.text.trim());
+    if (!mounted) return;
+    setState(() => _generatingSteps = false);
+    if (steps != null && steps.isNotEmpty) {
+      setGeneratedSteps(steps);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('AI steps added. You can edit them below.')),
+      );
+    } else if (steps != null && steps.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No steps returned. Try again.')),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Failed to generate steps. Try again.')),
+      );
+    }
   }
 
   Future<void> _selectDate() async {
@@ -309,7 +370,7 @@ class OneTimeTaskFormState extends State<OneTimeTaskForm> {
           const SizedBox(height: 24),
           // AI Steps Generator
           GestureDetector(
-            onTap: () {},
+            onTap: _generatingSteps ? null : _onGenerateAISteps,
             child: Container(
               decoration: BoxDecoration(
                 border: Border.all(
@@ -324,13 +385,23 @@ class OneTimeTaskFormState extends State<OneTimeTaskForm> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(
-                    Icons.auto_awesome,
-                    color: const Color(0xFF4F46E5),
-                  ),
+                  if (_generatingSteps)
+                    const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF4F46E5)),
+                      ),
+                    )
+                  else
+                    Icon(
+                      Icons.auto_awesome,
+                      color: const Color(0xFF4F46E5),
+                    ),
                   const SizedBox(width: 8),
                   Text(
-                    AppStrings.generateAISteps,
+                    _generatingSteps ? 'Generating…' : AppStrings.generateAISteps,
                     style: const TextStyle(
                       color: Color(0xFF4F46E5),
                       fontWeight: FontWeight.bold,

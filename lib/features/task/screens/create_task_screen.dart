@@ -69,6 +69,7 @@ class _CreateTaskScreenState extends State<CreateTaskScreen>
       name: payload['name'] as String,
       description: payload['description'] as String,
       dueDate: payload['dueDate'] as String,
+      time: payload['time'] as String?,
       meta: payload['meta'] as Map<String, dynamic>?,
     );
 
@@ -169,7 +170,18 @@ class _CreateTaskScreenState extends State<CreateTaskScreen>
       body: TabBarView(
         controller: _tabController,
         children: [
-          OneTimeTaskForm(key: _oneTimeFormKey),
+          OneTimeTaskForm(
+            key: _oneTimeFormKey,
+            onGenerateAISteps: (taskName, taskDescription) async {
+              final result = await _taskService.generateSteps(taskName, taskDescription);
+              switch (result) {
+                case ApiSuccess(data: final steps):
+                  return steps;
+                case ApiFailure():
+                  return null;
+              }
+            },
+          ),
           const RepetitiveTaskForm(),
         ],
       ),

@@ -27,6 +27,28 @@ class TaskService {
     );
   }
 
+  /// POST /api/openai/generate-steps with body { taskName, taskDescription }.
+  /// Returns list of step strings from response data.
+  Future<ApiResult<List<String>>> generateSteps(
+    String taskName,
+    String taskDescription,
+  ) {
+    final body = <String, dynamic>{
+      'taskName': taskName,
+      'taskDescription': taskDescription,
+    };
+    return _client.post<List<String>>(
+      ApiConstants.generateStepsPath,
+      body,
+      fromJson: (data) {
+        if (data is List) {
+          return data.map((e) => e.toString()).toList();
+        }
+        return <String>[];
+      },
+    );
+  }
+
   /// GET /api/tasks/{taskId}. Returns single task (same structure as list item).
   Future<ApiResult<TaskModel>> getTask(String taskId) {
     final path = '${ApiConstants.getTaskPath}/$taskId';
@@ -43,17 +65,7 @@ class TaskService {
   }
 
   /// PUT /api/tasks/{taskId}?userId=xxx.
-  /// Body matches backend contract:
-  /// {
-  ///   "task_id": "...",
-  ///   "name": "...",
-  ///   "description": "...",
-  ///   "meta": { "steps": [ { "value": "...", "completed": bool } ] },
-  ///   "dueDate": "yyyy-MM-dd",
-  ///   "doneDate": null | "yyyy-MM-dd",
-  ///   "status": "PENDING" | "COMPLETED" | ...,
-  ///   "authorId": "..."
-  /// }
+  /// Body matches backend contract (includes optional "time" e.g. "14:30").
   Future<ApiResult<TaskModel>> updateTaskFull({
     required String taskId,
     required String userId,
@@ -64,6 +76,7 @@ class TaskService {
     required String? doneDate,
     required String? status,
     required String authorId,
+    String? time,
   }) {
     final path = '${ApiConstants.getTaskPath}/$taskId?userId=$userId';
     final body = <String, dynamic>{
@@ -83,7 +96,6 @@ class TaskService {
     if (dueDate != null) {
       body['dueDate'] = dueDate;
     }
-    // Allow passing explicit null to clear doneDate.
     if (doneDate != null) {
       body['doneDate'] = doneDate;
     } else {
@@ -91,6 +103,9 @@ class TaskService {
     }
     if (status != null) {
       body['status'] = status;
+    }
+    if (time != null && time.isNotEmpty) {
+      body['time'] = time;
     }
 
     return _client.put<TaskModel>(
@@ -121,13 +136,14 @@ class TaskService {
     );
   }
 
-  /// POST /api/tasks with body { name, description, meta?, dueDate, authorId }.
-  /// dueDate format: yyyy-MM-dd.
+  /// POST /api/tasks with body { name, description, meta?, dueDate, time?, authorId }.
+  /// dueDate format: yyyy-MM-dd. time format: "HH:mm" (e.g. "14:30").
   Future<ApiResult<TaskModel>> createTask(
     String authorId, {
     required String name,
     required String description,
     String? dueDate,
+    String? time,
     Map<String, dynamic>? meta,
   }) {
     final body = <String, dynamic>{
@@ -138,6 +154,9 @@ class TaskService {
     };
     if (dueDate != null && dueDate.isNotEmpty) {
       body['dueDate'] = dueDate;
+    }
+    if (time != null && time.isNotEmpty) {
+      body['time'] = time;
     }
     return _client.post<TaskModel>(
       ApiConstants.createTaskPath,

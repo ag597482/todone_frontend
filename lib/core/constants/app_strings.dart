@@ -92,7 +92,7 @@ class AppStrings {
   static const String descriptionPlaceholder = 'Add more details about this task...';
   static const String dueDate = 'Due Date';
   static const String reminder = 'Reminder';
-  static const String generateAISteps = 'Generated AI Steps';
+  static const String generateAISteps = 'Generate AI Steps';
   static const String notesLabel = 'Notes (Bullet Points)';
   static const String addPoint = 'Add Point';
   static const String subtasksLabel = 'Subtasks';
@@ -139,8 +139,6 @@ class AppStrings {
   static const String due = 'Due';
   static const String daily = 'Daily';
   static const String aiGeneratedSteps = 'AI Generated Steps';
-  static const String aiSuggestion = 'Great progress. Next step: schedule your first workout for tomorrow morning to build momentum.';
-  static const String addProgressUpdate = 'Add progress update...';
   static const String markTaskCompleted = 'Mark Task Completed';
   static const String taskCompleted = 'Task Completed';
   static const String deleteTask = 'Delete task';

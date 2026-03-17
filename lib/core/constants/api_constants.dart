@@ -37,6 +37,10 @@ class ApiConstants {
   static const String updateTaskEndpoint = '/tasks/:id';
   static const String deleteTaskEndpoint = '/tasks/:id';
 
+  // Endpoints - OpenAI
+  /// POST /api/openai/generate-steps — body: taskName, taskDescription — returns data: List<String>
+  static const String generateStepsPath = '/api/openai/generate-steps';
+
   // Endpoints - Notifications
   static const String getNotificationsEndpoint = '/notifications';
   static const String markNotificationReadEndpoint = '/notifications/:id/read';

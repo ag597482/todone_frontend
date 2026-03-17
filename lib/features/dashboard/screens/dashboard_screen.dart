@@ -88,8 +88,31 @@ class _DashboardScreenState extends State<DashboardScreen> {
     if (!mounted) return;
     switch (result) {
       case ApiSuccess(data: final list):
+        // Hide completed tasks whose dueDate is before/after the selected day.
+        final selectedDateStr =
+            '${_selectedDate.year}-${_selectedDate.month.toString().padLeft(2, '0')}-${_selectedDate.day.toString().padLeft(2, '0')}';
+        final filtered = list.where((t) {
+          if (t.status == 'COMPLETED' &&
+              t.dueDate != null &&
+              t.dueDate!.isNotEmpty &&
+              t.dueDate != selectedDateStr) {
+            return false;
+          }
+          return true;
+        }).toList();
+
+        // Sort tasks by time within the selected date (earliest first).
+        final sorted = List<TaskModel>.from(filtered);
+        sorted.sort((a, b) {
+          final at = a.sortDateTime;
+          final bt = b.sortDateTime;
+          if (at == null && bt == null) return 0;
+          if (at == null) return 1; // put tasks without time at the end
+          if (bt == null) return -1;
+          return at.compareTo(bt);
+        });
         setState(() {
-          _tasks = list;
+          _tasks = sorted;
           _loading = false;
           _error = null;
         });
