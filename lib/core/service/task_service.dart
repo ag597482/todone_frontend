@@ -42,6 +42,64 @@ class TaskService {
     return _client.delete<Object?>(path);
   }
 
+  /// PUT /api/tasks/{taskId}?userId=xxx.
+  /// Body matches backend contract:
+  /// {
+  ///   "task_id": "...",
+  ///   "name": "...",
+  ///   "description": "...",
+  ///   "meta": { "steps": [ { "value": "...", "completed": bool } ] },
+  ///   "dueDate": "yyyy-MM-dd",
+  ///   "doneDate": null | "yyyy-MM-dd",
+  ///   "status": "PENDING" | "COMPLETED" | ...,
+  ///   "authorId": "..."
+  /// }
+  Future<ApiResult<TaskModel>> updateTaskFull({
+    required String taskId,
+    required String userId,
+    required String name,
+    required String description,
+    required List<SubtaskStep> steps,
+    required String? dueDate,
+    required String? doneDate,
+    required String? status,
+    required String authorId,
+  }) {
+    final path = '${ApiConstants.getTaskPath}/$taskId?userId=$userId';
+    final body = <String, dynamic>{
+      'task_id': taskId,
+      'name': name,
+      'description': description,
+      'meta': {
+        'steps': steps
+            .map((s) => {
+                  'value': s.value,
+                  'completed': s.completed,
+                })
+            .toList(),
+      },
+      'authorId': authorId,
+    };
+    if (dueDate != null) {
+      body['dueDate'] = dueDate;
+    }
+    // Allow passing explicit null to clear doneDate.
+    if (doneDate != null) {
+      body['doneDate'] = doneDate;
+    } else {
+      body['doneDate'] = null;
+    }
+    if (status != null) {
+      body['status'] = status;
+    }
+
+    return _client.put<TaskModel>(
+      path,
+      body,
+      fromJson: TaskModel.fromJson,
+    );
+  }
+
   /// PUT /api/tasks/{taskId}/subtask-status with body { userId, subtaskValue, completed }.
   /// Returns updated task with meta.steps reflecting the new completion state.
   Future<ApiResult<TaskModel>> updateSubtaskStatus(

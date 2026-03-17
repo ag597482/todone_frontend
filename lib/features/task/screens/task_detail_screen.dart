@@ -38,6 +38,14 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
   int? _togglingStepIndex;
   bool _markingComplete = false;
 
+  // Edit mode state
+  bool _isEditing = false;
+  final TextEditingController _titleController = TextEditingController();
+  final TextEditingController _descriptionController = TextEditingController();
+  final List<TextEditingController> _stepControllers = [];
+  final List<bool> _stepCompleted = [];
+  bool _savingEdits = false;
+
   @override
   void initState() {
     super.initState();
@@ -120,6 +128,11 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
   @override
   void dispose() {
     _progressController.dispose();
+    _titleController.dispose();
+    _descriptionController.dispose();
+    for (final c in _stepControllers) {
+      c.dispose();
+    }
     super.dispose();
   }
 
@@ -192,11 +205,161 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     }
   }
 
+  Future<void> _markTaskPending() async {
+    if (widget.taskId == null || widget.userId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Cannot update task status')),
+      );
+      return;
+    }
+    setState(() => _markingComplete = true);
+    final result = await _taskService.updateTaskStatus(
+      widget.taskId!,
+      widget.userId!,
+      'PENDING',
+    );
+    if (!mounted) return;
+    setState(() => _markingComplete = false);
+    switch (result) {
+      case ApiSuccess(data: final updatedTask):
+        setState(() {
+          isTaskCompleted = false;
+          _task = updatedTask;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Task marked as pending')),
+        );
+      case ApiFailure(message: final message):
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(message)),
+        );
+    }
+  }
+
   String get _title => _task?.title ?? widget.taskTitle;
   String get _description => _task?.description ?? widget.taskDescription;
   String get _category => _task?.displayLabel ?? widget.category;
   String get _dueDate => _task?.dueDate ?? widget.dueDate;
   String get _reminderTime => _task?.timeDisplay ?? widget.reminderTime;
+
+  void _enterEditMode() {
+    final task = _task;
+    if (task == null || widget.userId == null) {
+      return;
+    }
+
+    _titleController.text = task.title;
+    _descriptionController.text = task.description;
+
+    for (final c in _stepControllers) {
+      c.dispose();
+    }
+    _stepControllers.clear();
+    _stepCompleted.clear();
+
+    for (final step in task.steps) {
+      final c = TextEditingController(text: step.value);
+      _stepControllers.add(c);
+      _stepCompleted.add(step.completed);
+    }
+
+    setState(() {
+      _isEditing = true;
+    });
+  }
+
+  void _cancelEdit() {
+    for (final c in _stepControllers) {
+      c.dispose();
+    }
+    _stepControllers.clear();
+    _stepCompleted.clear();
+    setState(() {
+      _isEditing = false;
+      _savingEdits = false;
+    });
+  }
+
+  void _addStepField() {
+    setState(() {
+      _stepControllers.add(TextEditingController());
+      _stepCompleted.add(false);
+    });
+  }
+
+  void _removeStepField(int index) {
+    if (index < 0 || index >= _stepControllers.length) return;
+    setState(() {
+      _stepControllers[index].dispose();
+      _stepControllers.removeAt(index);
+      _stepCompleted.removeAt(index);
+    });
+  }
+
+  Future<void> _saveEdits() async {
+    final task = _task;
+    final userId = widget.userId;
+    final taskId = widget.taskId;
+    if (task == null || userId == null || taskId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Cannot update task')),
+      );
+      return;
+    }
+    final name = _titleController.text.trim();
+    final description = _descriptionController.text.trim();
+    if (name.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Task name cannot be empty')),
+      );
+      return;
+    }
+
+    final steps = <SubtaskStep>[];
+    for (var i = 0; i < _stepControllers.length; i++) {
+      final value = _stepControllers[i].text.trim();
+      if (value.isEmpty) continue;
+      steps.add(SubtaskStep(value, _stepCompleted[i]));
+    }
+
+    setState(() {
+      _savingEdits = true;
+    });
+
+    final result = await _taskService.updateTaskFull(
+      taskId: task.id,
+      userId: userId,
+      name: name,
+      description: description,
+      steps: steps,
+      dueDate: task.dueDate,
+      doneDate: null,
+      status: task.status,
+      authorId: userId,
+    );
+
+    if (!mounted) return;
+
+    setState(() {
+      _savingEdits = false;
+    });
+
+    switch (result) {
+      case ApiSuccess(data: final updatedTask):
+        setState(() {
+          _task = updatedTask;
+          isTaskCompleted = updatedTask.status == 'COMPLETED';
+          _isEditing = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Task updated')),
+        );
+      case ApiFailure(message: final message):
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(message)),
+        );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -215,24 +378,46 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
         ),
         title: const Text(AppStrings.taskDetail),
         actions: [
-          PopupMenuButton<String>(
-            icon: const Icon(Icons.more_vert),
-            onSelected: (value) {
-              if (value == 'delete') _showDeleteConfirm();
-            },
-            itemBuilder: (context) => [
-              const PopupMenuItem(
-                value: 'delete',
-                child: Row(
-                  children: [
-                    Icon(Icons.delete_outline, color: Color(0xFFDC2626), size: 22),
-                    SizedBox(width: 12),
-                    Text(AppStrings.deleteTask),
-                  ],
+          if (!_isEditing)
+            IconButton(
+              icon: const Icon(Icons.edit),
+              onPressed: widget.userId != null && _task != null ? _enterEditMode : null,
+            ),
+          if (_isEditing)
+            TextButton(
+              onPressed: _savingEdits ? null : _cancelEdit,
+              child: const Text(AppStrings.cancel),
+            ),
+          if (_isEditing)
+            TextButton(
+              onPressed: _savingEdits ? null : _saveEdits,
+              child: _savingEdits
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Text(AppStrings.save),
+            ),
+          if (!_isEditing)
+            PopupMenuButton<String>(
+              icon: const Icon(Icons.more_vert),
+              onSelected: (value) {
+                if (value == 'delete') _showDeleteConfirm();
+              },
+              itemBuilder: (context) => [
+                const PopupMenuItem(
+                  value: 'delete',
+                  child: Row(
+                    children: [
+                      Icon(Icons.delete_outline, color: Color(0xFFDC2626), size: 22),
+                      SizedBox(width: 12),
+                      Text(AppStrings.deleteTask),
+                    ],
+                  ),
                 ),
-              ),
-            ],
-          ),
+              ],
+            ),
         ],
       ),
       body: _loading
@@ -296,26 +481,54 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                               const SizedBox(height: 12),
 
                               // Task Title
-                              Text(
-                                _title,
-                                style: const TextStyle(
-                                  fontSize: 24,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
+                              _isEditing
+                                  ? TextField(
+                                      controller: _titleController,
+                                      style: const TextStyle(
+                                        fontSize: 24,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                      decoration: const InputDecoration(
+                                        border: InputBorder.none,
+                                        hintText: 'Task name',
+                                      ),
+                                    )
+                                  : Text(
+                                      _title,
+                                      style: const TextStyle(
+                                        fontSize: 24,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
                               const SizedBox(height: 16),
 
                               // Task Description
-                              Text(
-                                _description,
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  color: isDark
-                                      ? const Color(0xFFCBD5E1)
-                                      : const Color(0xFF475569),
-                                  height: 1.5,
-                                ),
-                              ),
+                              _isEditing
+                                  ? TextField(
+                                      controller: _descriptionController,
+                                      maxLines: null,
+                                      decoration: const InputDecoration(
+                                        border: InputBorder.none,
+                                        hintText: 'Description',
+                                      ),
+                                      style: TextStyle(
+                                        fontSize: 16,
+                                        color: isDark
+                                            ? const Color(0xFFCBD5E1)
+                                            : const Color(0xFF475569),
+                                        height: 1.5,
+                                      ),
+                                    )
+                                  : Text(
+                                      _description,
+                                      style: TextStyle(
+                                        fontSize: 16,
+                                        color: isDark
+                                            ? const Color(0xFFCBD5E1)
+                                            : const Color(0xFF475569),
+                                        height: 1.5,
+                                      ),
+                                    ),
                               const SizedBox(height: 16),
 
                               // Meta Info (Due Date & Reminder)
@@ -374,7 +587,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                       ),
 
             // AI Generated Steps Section (from API meta.steps, toggle via PUT subtask-status)
-            if (_task?.steps.isNotEmpty ?? false) ...[
+            if ((_task?.steps.isNotEmpty ?? false) || _isEditing) ...[
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: Column(
@@ -461,16 +674,13 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                       child: ListView.builder(
                         shrinkWrap: true,
                         physics: const NeverScrollableScrollPhysics(),
-                        itemCount: _task!.steps.length,
+                        itemCount: _isEditing ? _stepControllers.length : _task!.steps.length,
                         itemBuilder: (context, index) {
-                          final step = _task!.steps[index];
-                          final isToggling = _togglingStepIndex == index;
-
-                          return GestureDetector(
-                            onTap: isToggling ? null : () => _toggleStep(index),
-                            child: Container(
+                          if (_isEditing) {
+                            final controller = _stepControllers[index];
+                            return Container(
                               decoration: BoxDecoration(
-                                border: index != _task!.steps.length - 1
+                                border: index != _stepControllers.length - 1
                                     ? Border(
                                         bottom: BorderSide(
                                           color: isDark
@@ -483,63 +693,133 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                               padding: const EdgeInsets.all(12),
                               child: Row(
                                 children: [
-                                  if (isToggling)
-                                    const SizedBox(
-                                      width: 24,
-                                      height: 24,
-                                      child: Padding(
-                                        padding: EdgeInsets.all(2),
-                                        child: CircularProgressIndicator(
-                                          strokeWidth: 2,
-                                        ),
-                                      ),
-                                    )
-                                  else
-                                    Checkbox(
-                                      value: step.completed,
-                                      onChanged: widget.userId != null
-                                          ? (_) => _toggleStep(index)
-                                          : null,
-                                      fillColor: MaterialStateProperty.resolveWith(
-                                        (states) {
-                                          if (states
-                                              .contains(MaterialState.selected)) {
-                                            return const Color(0xFF4F46E5);
-                                          }
-                                          return Colors.transparent;
-                                        },
-                                      ),
-                                      side: const BorderSide(
-                                        color: Color(0xFF94A3B8),
-                                      ),
+                                  Checkbox(
+                                    value: _stepCompleted[index],
+                                    onChanged: (value) {
+                                      setState(() {
+                                        _stepCompleted[index] = value ?? false;
+                                      });
+                                    },
+                                    fillColor: MaterialStateProperty.resolveWith(
+                                      (states) {
+                                        if (states.contains(MaterialState.selected)) {
+                                          return const Color(0xFF4F46E5);
+                                        }
+                                        return Colors.transparent;
+                                      },
                                     ),
+                                    side: const BorderSide(
+                                      color: Color(0xFF94A3B8),
+                                    ),
+                                  ),
                                   const SizedBox(width: 8),
                                   Expanded(
-                                    child: Text(
-                                      step.value,
-                                      style: TextStyle(
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.w500,
-                                        decoration: step.completed
-                                            ? TextDecoration.lineThrough
-                                            : null,
-                                        color: step.completed
-                                            ? (isDark
-                                                ? const Color(0xFF64748B)
-                                                : const Color(0xFFA0AEC0))
-                                            : (isDark
-                                                ? const Color(0xFFE2E8F0)
-                                                : const Color(0xFF1E293B)),
+                                    child: TextField(
+                                      controller: controller,
+                                      decoration: const InputDecoration(
+                                        border: InputBorder.none,
+                                        hintText: 'Subtask',
                                       ),
                                     ),
                                   ),
+                                  IconButton(
+                                    icon: const Icon(Icons.delete_outline, size: 20),
+                                    onPressed: () => _removeStepField(index),
+                                  ),
                                 ],
                               ),
-                            ),
-                          );
+                            );
+                          } else {
+                            final step = _task!.steps[index];
+                            final isToggling = _togglingStepIndex == index;
+
+                            return GestureDetector(
+                              onTap: isToggling ? null : () => _toggleStep(index),
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  border: index != _task!.steps.length - 1
+                                      ? Border(
+                                          bottom: BorderSide(
+                                            color: isDark
+                                                ? const Color(0xFF334155)
+                                                : const Color(0xFFE2E8F0),
+                                          ),
+                                        )
+                                      : null,
+                                ),
+                                padding: const EdgeInsets.all(12),
+                                child: Row(
+                                  children: [
+                                    if (isToggling)
+                                      const SizedBox(
+                                        width: 24,
+                                        height: 24,
+                                        child: Padding(
+                                          padding: EdgeInsets.all(2),
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2,
+                                          ),
+                                        ),
+                                      )
+                                    else
+                                      Checkbox(
+                                        value: step.completed,
+                                        onChanged: widget.userId != null
+                                            ? (_) => _toggleStep(index)
+                                            : null,
+                                        fillColor: MaterialStateProperty.resolveWith(
+                                          (states) {
+                                            if (states
+                                                .contains(MaterialState.selected)) {
+                                              return const Color(0xFF4F46E5);
+                                            }
+                                            return Colors.transparent;
+                                          },
+                                        ),
+                                        side: const BorderSide(
+                                          color: Color(0xFF94A3B8),
+                                        ),
+                                      ),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: Text(
+                                        step.value,
+                                        style: TextStyle(
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w500,
+                                          decoration: step.completed
+                                              ? TextDecoration.lineThrough
+                                              : null,
+                                          color: step.completed
+                                              ? (isDark
+                                                  ? const Color(0xFF64748B)
+                                                  : const Color(0xFFA0AEC0))
+                                              : (isDark
+                                                  ? const Color(0xFFE2E8F0)
+                                                  : const Color(0xFF1E293B)),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            );
+                          }
                         },
                       ),
                     ),
+                    if (_isEditing)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 8),
+                        child: Align(
+                          alignment: Alignment.centerLeft,
+                          child: TextButton.icon(
+                            onPressed: _addStepField,
+                            icon: const Icon(Icons.add),
+                            label: const Text('Add subtask'),
+                          ),
+                        ),
+                      ),
                   ],
                 ),
               ),
@@ -653,9 +933,9 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
               child: SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
-                  onPressed: (isTaskCompleted || _markingComplete)
+                  onPressed: _markingComplete
                       ? null
-                      : _markTaskCompleted,
+                      : (isTaskCompleted ? _markTaskPending : _markTaskCompleted),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF4F46E5),
                     disabledBackgroundColor: const Color(0xFF9CA3AF),
@@ -678,14 +958,14 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                           children: [
                             Icon(
                               isTaskCompleted
-                                  ? Icons.check_circle
+                                  ? Icons.refresh
                                   : Icons.check_circle_outline,
                               color: Colors.white,
                             ),
                             const SizedBox(width: 8),
                             Text(
                               isTaskCompleted
-                                  ? AppStrings.taskCompleted
+                                  ? 'Mark Task Pending'
                                   : AppStrings.markTaskCompleted,
                               style: const TextStyle(
                                 fontSize: 14,
