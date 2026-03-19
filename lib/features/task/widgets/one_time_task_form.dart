@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:todone_frontend/core/constants/index.dart';
+import 'package:todone_frontend/core/service/task_group_api_models.dart';
 
 /// Callback: (taskName, taskDescription) -> list of step strings or null on error.
 typedef GenerateStepsCallback = Future<List<String>?> Function(
@@ -11,9 +12,11 @@ class OneTimeTaskForm extends StatefulWidget {
   const OneTimeTaskForm({
     super.key,
     this.onGenerateAISteps,
+    this.taskGroups = const [],
   });
 
   final GenerateStepsCallback? onGenerateAISteps;
+  final List<TaskGroupModel> taskGroups;
 
   @override
   State<OneTimeTaskForm> createState() => OneTimeTaskFormState();
@@ -26,6 +29,7 @@ class OneTimeTaskFormState extends State<OneTimeTaskForm> {
   DateTime? _selectedDate;
   TimeOfDay? _selectedTime;
   bool _generatingSteps = false;
+  String? _selectedTaskGroupId;
 
   /// Returns task payload for API: name, description, dueDate (yyyy-MM-dd), time (HH:mm), meta.steps (if any), or null if invalid.
   Map<String, dynamic>? getTaskPayload() {
@@ -54,7 +58,20 @@ class OneTimeTaskFormState extends State<OneTimeTaskForm> {
     if (steps.isNotEmpty) {
       payload['meta'] = {'steps': steps};
     }
+    payload['taskGroupId'] = _selectedTaskGroupId;
     return payload;
+  }
+
+  @override
+  void didUpdateWidget(OneTimeTaskForm oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final id = _selectedTaskGroupId;
+    if (id != null &&
+        !widget.taskGroups.any((g) => g.taskGroupId == id)) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) setState(() => _selectedTaskGroupId = null);
+      });
+    }
   }
 
   @override
@@ -254,6 +271,84 @@ class OneTimeTaskFormState extends State<OneTimeTaskForm> {
                   contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                 ),
               ),
+            ],
+          ),
+          const SizedBox(height: 24),
+          // Task group
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                AppStrings.taskGroupLabel,
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
+                  letterSpacing: 1,
+                ),
+              ),
+              const SizedBox(height: 8),
+              DropdownButtonFormField<String?>(
+                value: _selectedTaskGroupId,
+                isExpanded: true,
+                decoration: InputDecoration(
+                  filled: true,
+                  fillColor: isDark ? const Color(0xFF1E293B) : Colors.white,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(
+                      color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0),
+                    ),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(
+                      color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0),
+                    ),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(
+                      color: Color(0xFF4F46E5),
+                      width: 2,
+                    ),
+                  ),
+                  contentPadding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                ),
+                hint: Text(
+                  AppStrings.taskGroupNone,
+                  style: TextStyle(
+                    color: isDark ? const Color(0xFF64748B) : const Color(0xFF94A3B8),
+                  ),
+                ),
+                items: [
+                  DropdownMenuItem<String?>(
+                    value: null,
+                    child: Text(AppStrings.taskGroupNone),
+                  ),
+                  ...widget.taskGroups.map(
+                    (g) => DropdownMenuItem<String?>(
+                      value: g.taskGroupId,
+                      child: Text(
+                        g.name.isNotEmpty ? g.name : g.taskGroupId,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ),
+                ],
+                onChanged: (v) => setState(() => _selectedTaskGroupId = v),
+              ),
+              if (widget.taskGroups.isEmpty) ...[
+                const SizedBox(height: 8),
+                Text(
+                  AppStrings.taskGroupCreateHint,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: isDark ? const Color(0xFF64748B) : const Color(0xFF94A3B8),
+                  ),
+                ),
+              ],
             ],
           ),
           const SizedBox(height: 24),

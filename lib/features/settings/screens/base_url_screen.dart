@@ -1,13 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:todone_frontend/core/constants/api_constants.dart';
 import 'package:todone_frontend/core/constants/index.dart';
 import 'package:todone_frontend/core/service/index.dart';
+import 'package:todone_frontend/core/theme/theme_mode_notifier.dart';
 
-enum BaseUrlOption {
-  localhost,
-  railway,
-  custom,
-}
+enum BaseUrlOption { localhost, railway, custom }
 
 class BaseUrlScreen extends StatefulWidget {
   const BaseUrlScreen({super.key});
@@ -24,7 +22,8 @@ class _BaseUrlScreenState extends State<BaseUrlScreen> {
   final UserStorageService _userStorage = UserStorageService();
   final UserService _userService = UserService();
   final TextEditingController _customController = TextEditingController();
-  final TextEditingController _telegramTokenController = TextEditingController();
+  final TextEditingController _telegramTokenController =
+      TextEditingController();
 
   BaseUrlOption _selectedOption = BaseUrlOption.railway;
   bool _loading = true;
@@ -86,9 +85,9 @@ class _BaseUrlScreenState extends State<BaseUrlScreen> {
     }
     final userId = _userId;
     if (userId == null || userId.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please log in again')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Please log in again')));
       return;
     }
     setState(() => _telegramIntegrating = true);
@@ -101,9 +100,9 @@ class _BaseUrlScreenState extends State<BaseUrlScreen> {
           const SnackBar(content: Text(AppStrings.telegramLinkedSuccess)),
         );
       case ApiFailure(message: final message):
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(message)),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(message)));
     }
   }
 
@@ -118,15 +117,16 @@ class _BaseUrlScreenState extends State<BaseUrlScreen> {
     final toSave = url.isEmpty ? ApiConstants.defaultBaseUrl : url;
     await _baseUrlService.setBaseUrl(toSave);
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text(AppStrings.baseUrlSaved)),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text(AppStrings.baseUrlSaved)));
     Navigator.of(context).pop();
   }
 
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final themeNotifier = context.watch<ThemeModeNotifier>();
 
     return Scaffold(
       appBar: AppBar(
@@ -244,14 +244,76 @@ class _BaseUrlScreenState extends State<BaseUrlScreen> {
                       child: const Text(AppStrings.save),
                     ),
                   ),
-                  const SizedBox(height: 40),
+                  const SizedBox(height: 32),
+                  // Appearance (Theme) Section
+                  Text(
+                    AppStrings.appearance,
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Container(
+                    decoration: BoxDecoration(
+                      color: isDark ? const Color(0xFF1E293B) : Colors.white,
+                      border: Border.all(
+                        color: isDark
+                            ? const Color(0xFF334155)
+                            : const Color(0xFFE2E8F0),
+                      ),
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: Column(
+                      children: [
+                        _ThemeOptionTile(
+                          label: AppStrings.themeLight,
+                          icon: Icons.light_mode_outlined,
+                          isSelected:
+                              themeNotifier.themeMode == ThemeMode.light,
+                          onTap: () =>
+                              themeNotifier.setThemeMode(ThemeMode.light),
+                        ),
+                        Divider(
+                          height: 1,
+                          color: isDark
+                              ? const Color(0xFF334155)
+                              : const Color(0xFFE2E8F0),
+                        ),
+                        _ThemeOptionTile(
+                          label: AppStrings.themeDark,
+                          icon: Icons.dark_mode_outlined,
+                          isSelected: themeNotifier.themeMode == ThemeMode.dark,
+                          onTap: () =>
+                              themeNotifier.setThemeMode(ThemeMode.dark),
+                        ),
+                        Divider(
+                          height: 1,
+                          color: isDark
+                              ? const Color(0xFF334155)
+                              : const Color(0xFFE2E8F0),
+                        ),
+                        _ThemeOptionTile(
+                          label: AppStrings.themeSystem,
+                          icon: Icons.brightness_auto_outlined,
+                          isSelected:
+                              themeNotifier.themeMode == ThemeMode.system,
+                          onTap: () =>
+                              themeNotifier.setThemeMode(ThemeMode.system),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 32),
                   // Telegram integration
                   Text(
                     AppStrings.telegramIntegration,
                     style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
-                      color: isDark ? const Color(0xFFE2E8F0) : const Color(0xFF1E293B),
+                      color: isDark
+                          ? const Color(0xFFE2E8F0)
+                          : const Color(0xFF1E293B),
                     ),
                   ),
                   const SizedBox(height: 8),
@@ -293,7 +355,9 @@ class _BaseUrlScreenState extends State<BaseUrlScreen> {
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton.icon(
-                      onPressed: _telegramIntegrating ? null : _integrateTelegram,
+                      onPressed: _telegramIntegrating
+                          ? null
+                          : _integrateTelegram,
                       icon: _telegramIntegrating
                           ? const SizedBox(
                               width: 20,
@@ -305,7 +369,9 @@ class _BaseUrlScreenState extends State<BaseUrlScreen> {
                             )
                           : const Icon(Icons.link, size: 20),
                       label: Text(
-                        _telegramIntegrating ? 'Linking...' : AppStrings.integrate,
+                        _telegramIntegrating
+                            ? 'Linking...'
+                            : AppStrings.integrate,
                       ),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFF4F46E5),
@@ -319,6 +385,48 @@ class _BaseUrlScreenState extends State<BaseUrlScreen> {
                 ],
               ),
             ),
+    );
+  }
+}
+
+class _ThemeOptionTile extends StatelessWidget {
+  const _ThemeOptionTile({
+    required this.label,
+    required this.icon,
+    required this.isSelected,
+    required this.onTap,
+  });
+
+  final String label;
+  final IconData icon;
+  final bool isSelected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return ListTile(
+      leading: Icon(
+        icon,
+        size: 22,
+        color: isSelected
+            ? const Color(0xFF4F46E5)
+            : (isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B)),
+      ),
+      title: Text(
+        label,
+        style: TextStyle(
+          fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+          color: isSelected
+              ? const Color(0xFF4F46E5)
+              : (isDark ? const Color(0xFFE2E8F0) : const Color(0xFF334155)),
+        ),
+      ),
+      trailing: isSelected
+          ? const Icon(Icons.check_circle, color: Color(0xFF4F46E5), size: 22)
+          : null,
+      onTap: onTap,
     );
   }
 }

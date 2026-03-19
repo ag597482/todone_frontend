@@ -7,6 +7,8 @@ export 'notification_api_models.dart';
 export 'notification_service.dart';
 export 'profile_api_models.dart';
 export 'task_api_models.dart';
+export 'task_group_api_models.dart';
+export 'task_group_service.dart';
 export 'task_service.dart';
 export 'user_storage_service.dart';
 export 'user_service.dart';

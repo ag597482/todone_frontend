@@ -1,7 +1,8 @@
 class AppStrings {
   // Auth Screen
   static const String todoneTitle = 'Todone';
-  static const String todoneSubtitle = 'Manage tasks. Build routines. Finish more.';
+  static const String todoneSubtitle =
+      'Manage tasks. Build routines. Finish more.';
   static const String defaultCountryCode = '+91';
   static const String phoneNumberLabel = 'Phone Number';
   static const String enterMobileNumber = 'Enter mobile number';
@@ -11,6 +12,7 @@ class AppStrings {
   static const String resend = 'Resend';
   static const String verifyOTP = 'Verify OTP';
   static const String pleaseEnterPhoneNumber = 'Please enter your phone number';
+  static const String pleaseLogInAgain = 'Please log in again';
   static const String otpSent = 'OTP sent';
   static const String pleaseRequestOtpAgain = 'Please request OTP again';
   static const String termsAndPrivacy =
@@ -20,7 +22,8 @@ class AppStrings {
   static const String baseUrlSettingsTitle = 'API Base URL';
   static const String baseUrlSettingsSubtitle =
       'Choose or enter the server URL for API calls.';
-  static const String baseUrlOptionLocalhost = 'Localhost (http://localhost:8080)';
+  static const String baseUrlOptionLocalhost =
+      'Localhost (http://localhost:8080)';
   static const String baseUrlOptionRailway =
       'Railway (https://todone-todone.up.railway.app)';
   static const String baseUrlOptionCustom = 'Custom';
@@ -42,11 +45,14 @@ class AppStrings {
   static const String tasksLeft = 'Left';
   static const String searchTasks = 'Search tasks...';
   static const String finalizeProjectProposal = 'Finalize Project Proposal';
-  static const String projectProposalDesc = 'Review all budget requirements with the finance team.';
+  static const String projectProposalDesc =
+      'Review all budget requirements with the finance team.';
   static const String weeklySyncMeeting = 'Weekly Sync Meeting';
-  static const String weeklySyncDesc = 'Discuss roadmap for Q3 and team availability.';
+  static const String weeklySyncDesc =
+      'Discuss roadmap for Q3 and team availability.';
   static const String designSystemUpdate = 'Design System Update';
-  static const String designSystemDesc = 'Audit existing color palette for WCAG contrast.';
+  static const String designSystemDesc =
+      'Audit existing color palette for WCAG contrast.';
   static const String dueToday = 'Due Today';
   static const String rolledOver = 'Rolled Over';
   static const String aiSteps = 'AI Steps';
@@ -89,7 +95,8 @@ class AppStrings {
   static const String taskName = 'Task Name';
   static const String taskNamePlaceholder = 'What needs to be done?';
   static const String description = 'Description';
-  static const String descriptionPlaceholder = 'Add more details about this task...';
+  static const String descriptionPlaceholder =
+      'Add more details about this task...';
   static const String dueDate = 'Due Date';
   static const String reminder = 'Reminder';
   static const String generateAISteps = 'Generate AI Steps';
@@ -108,10 +115,34 @@ class AppStrings {
   static const String every4h = 'Every 4h';
   static const String custom = 'Custom';
   static const String aiTaskBreakdown = 'AI Task Breakdown';
-  static const String letAIBreakTask = 'Let AI break this routine into manageable, habit-forming steps.';
+  static const String letAIBreakTask =
+      'Let AI break this routine into manageable, habit-forming steps.';
   static const String notesAndSubSteps = 'Notes & Sub-steps';
   static const String addStep = 'Add a step';
   static const String saveRoutine = 'Save Routine';
+  static const String taskGroupsTab = 'Task Groups';
+  static const String taskGroupLabel = 'Task group';
+  static const String taskGroupNone = 'None';
+  static const String taskGroupCreateHint =
+      'Create groups in the Task groups tab.';
+  static const String taskGroupsEmpty = 'No task groups yet';
+  static const String taskGroupNameHint = 'Group name';
+  static const String taskGroupCreated = 'Task group created';
+  static const String taskGroupCreateFailed = 'Could not create task group';
+  static const String taskGroupsLoadFailed = 'Could not load task groups';
+  static const String taskGroupEdit = 'Edit task group';
+  static const String taskGroupEditNameHint = 'New group name';
+  static const String taskGroupUpdated = 'Task group updated';
+  static const String taskGroupUpdateFailed = 'Could not update task group';
+  static const String taskGroupDelete = 'Delete task group';
+  static const String taskGroupDeleteConfirm =
+      'Delete this task group? Tasks may show as ungrouped or in another group.';
+  static const String taskGroupDeleted = 'Task group deleted successfully';
+  static const String taskGroupDeleteFailed = 'Could not delete task group';
+  static const String unknownTaskGroup = 'Group';
+  static const String taskGroupsTabFooter =
+      'Use the + button to add a task group';
+  static const String taskGroupGlanceLabel = 'AT A GLANCE';
 
   // Profile
   static const String editProfile = 'Edit Profile';

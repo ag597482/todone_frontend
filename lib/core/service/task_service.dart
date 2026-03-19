@@ -77,6 +77,7 @@ class TaskService {
     required String? status,
     required String authorId,
     String? time,
+    String? taskGroupId,
   }) {
     final path = '${ApiConstants.getTaskPath}/$taskId?userId=$userId';
     final body = <String, dynamic>{
@@ -92,6 +93,8 @@ class TaskService {
             .toList(),
       },
       'authorId': authorId,
+      'task_group_id':
+          taskGroupId != null && taskGroupId.isNotEmpty ? taskGroupId : null,
     };
     if (dueDate != null) {
       body['dueDate'] = dueDate;
@@ -145,6 +148,7 @@ class TaskService {
     String? dueDate,
     String? time,
     Map<String, dynamic>? meta,
+    String? taskGroupId,
   }) {
     final body = <String, dynamic>{
       'name': name,
@@ -157,6 +161,9 @@ class TaskService {
     }
     if (time != null && time.isNotEmpty) {
       body['time'] = time;
+    }
+    if (taskGroupId != null && taskGroupId.isNotEmpty) {
+      body['taskGroupId'] = taskGroupId;
     }
     return _client.post<TaskModel>(
       ApiConstants.createTaskPath,

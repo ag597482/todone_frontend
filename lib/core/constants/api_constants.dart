@@ -18,36 +18,54 @@ class ApiConstants {
   // Endpoints - User
   static const String getUserEndpoint = '/user/profile';
   static const String updateUserEndpoint = '/user/profile';
+
   /// GET /api/users/{userId}/profile — returns user, tasks, completedTasksCount, pendingTasksCount
   static String userProfilePath(String userId) => '/api/users/$userId/profile';
+
   /// PUT /api/users/{userId} — body: { name }
   static String updateUserPath(String userId) => '/api/users/$userId';
+
   /// PATCH /api/users/{userId}/telegram — body: { telegramToken }
-  static String userTelegramPath(String userId) => '/api/users/$userId/telegram';
+  static String userTelegramPath(String userId) =>
+      '/api/users/$userId/telegram';
 
   // Endpoints - Tasks
   static const String getTasksEndpoint = '/tasks';
-  static const String getTasksForUserPath = '/api/tasks/user'; // append /{userId}?date=yyyy-MM-dd
-  static const String updateTaskStatusPath = '/api/tasks'; // append /{taskId}/status or /{taskId} for GET/DELETE
-  static const String getTaskPath = '/api/tasks'; // append /{taskId} for GET, /{taskId}?userId= for DELETE
+  static const String getTasksForUserPath =
+      '/api/tasks/user'; // append /{userId}?date=yyyy-MM-dd
+  static const String updateTaskStatusPath =
+      '/api/tasks'; // append /{taskId}/status or /{taskId} for GET/DELETE
+  static const String getTaskPath =
+      '/api/tasks'; // append /{taskId} for GET, /{taskId}?userId= for DELETE
   static const String createTaskPath = '/api/tasks'; // POST
+  /// GET /api/task-groups?userId=... list groups; POST /api/task-groups create
+  static const String taskGroupsPath = '/api/task-groups';
+  static String taskGroupByIdPath(String taskGroupId) =>
+      '$taskGroupsPath/$taskGroupId';
+  static String taskGroupsForUserQuery(String userId) =>
+      '$taskGroupsPath?userId=$userId';
   // PUT /api/tasks/{taskId}/subtask-status — body: userId, subtaskValue, completed
-  static String subtaskStatusPath(String taskId) => '$getTaskPath/$taskId/subtask-status';
+  static String subtaskStatusPath(String taskId) =>
+      '$getTaskPath/$taskId/subtask-status';
   static const String createTaskEndpoint = '/tasks';
   static const String updateTaskEndpoint = '/tasks/:id';
   static const String deleteTaskEndpoint = '/tasks/:id';
 
   // Endpoints - OpenAI
-  /// POST /api/openai/generate-steps — body: taskName, taskDescription — returns data: List<String>
+  /// POST /api/openai/generate-steps — body: taskName, taskDescription — returns data as list of strings
   static const String generateStepsPath = '/api/openai/generate-steps';
 
   // Endpoints - Notifications
   static const String getNotificationsEndpoint = '/notifications';
   static const String markNotificationReadEndpoint = '/notifications/:id/read';
+
   /// GET /api/notifications/user/{userId}
-  static String notificationsForUserPath(String userId) => '/api/notifications/user/$userId';
+  static String notificationsForUserPath(String userId) =>
+      '/api/notifications/user/$userId';
+
   /// PATCH /api/notifications/{notificationId}/status — body: userId, notificationStatus
-  static String notificationStatusPath(String notificationId) => '/api/notifications/$notificationId/status';
+  static String notificationStatusPath(String notificationId) =>
+      '/api/notifications/$notificationId/status';
 
   // Timeouts
   static const Duration connectionTimeout = Duration(seconds: 30);

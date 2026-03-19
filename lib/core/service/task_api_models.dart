@@ -17,6 +17,7 @@ class TaskModel {
     this.dueDate,
     this.reminderTime,
     this.status,
+    this.taskGroupId,
     List<SubtaskStep>? steps,
     bool? hasAISteps,
     this.hasNotes = false,
@@ -29,6 +30,8 @@ class TaskModel {
   final String? dueDate;
   final String? reminderTime;
   final String? status;
+  /// Optional task group / parent grouping id from API.
+  final String? taskGroupId;
   /// AI-generated steps from API response meta.steps (value + completed).
   final List<SubtaskStep> steps;
   final bool hasAISteps;
@@ -72,6 +75,11 @@ class TaskModel {
     } else if (map['meta'] is Map && (map['meta'] as Map)['time'] != null) {
       reminder = (map['meta'] as Map)['time'].toString();
     }
+    final rawGroupId = map['task_group_id'] ?? map['taskGroupId'] ?? map['task_groupId'];
+    final groupIdStr = rawGroupId?.toString();
+    final taskGroupId =
+        groupIdStr != null && groupIdStr.isNotEmpty ? groupIdStr : null;
+
     return TaskModel(
       id: map['task_id']?.toString() ?? map['id']?.toString() ?? '',
       title: map['name'] as String? ?? map['title'] as String? ?? '',
@@ -79,6 +87,7 @@ class TaskModel {
       dueDate: map['dueDate']?.toString() ?? map['due_date']?.toString(),
       reminderTime: reminder,
       status: map['status']?.toString() ?? map['label']?.toString() ?? map['category']?.toString(),
+      taskGroupId: taskGroupId,
       steps: stepsList,
       hasAISteps: map['hasAISteps'] == true ||
           map['has_ai_steps'] == true ||

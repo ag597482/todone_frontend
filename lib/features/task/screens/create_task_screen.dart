@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:todone_frontend/core/constants/index.dart';
-import 'package:todone_frontend/core/service/api_result.dart';
-import 'package:todone_frontend/core/service/task_service.dart';
-import 'package:todone_frontend/core/service/user_storage_service.dart';
+import 'package:todone_frontend/core/service/index.dart';
 import '../widgets/index.dart';
 
 class CreateTaskScreen extends StatefulWidget {
@@ -16,29 +14,59 @@ class _CreateTaskScreenState extends State<CreateTaskScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
   int _currentTabIndex = 0;
+  int _previousTabIndex = 0;
   final _oneTimeFormKey = GlobalKey<OneTimeTaskFormState>();
   final _taskService = TaskService();
+  final _taskGroupService = TaskGroupService();
   final _userStorage = UserStorageService();
+  List<TaskGroupModel> _taskGroups = [];
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
-    _tabController.addListener(() {
-      setState(() {
-        _currentTabIndex = _tabController.index;
-      });
+    _tabController = TabController(length: 3, vsync: this);
+    _tabController.addListener(_onTabChanged);
+    _loadTaskGroups();
+  }
+
+  void _onTabChanged() {
+    if (_tabController.indexIsChanging) return;
+    final idx = _tabController.index;
+    if (_previousTabIndex == 2 && idx == 0) {
+      _loadTaskGroups();
+    }
+    _previousTabIndex = idx;
+    setState(() {
+      _currentTabIndex = idx;
     });
+  }
+
+  Future<void> _loadTaskGroups() async {
+    final user = await _userStorage.getUser();
+    if (user == null || !mounted) return;
+    final result = await _taskGroupService.getTaskGroups(user.userId);
+    if (!mounted) return;
+    switch (result) {
+      case ApiSuccess(data: final list):
+        setState(() => _taskGroups = list);
+      case ApiFailure():
+        break;
+    }
   }
 
   @override
   void dispose() {
+    _tabController.removeListener(_onTabChanged);
     _tabController.dispose();
     super.dispose();
   }
 
   Future<void> _onSaveTapped() async {
-    if (_currentTabIndex != 0) {
+    if (_currentTabIndex == 2) {
+      return;
+    }
+
+    if (_currentTabIndex == 1) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Routine saved!')),
       );
@@ -49,13 +77,14 @@ class _CreateTaskScreenState extends State<CreateTaskScreen>
     if (user == null) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please log in again')),
+        const SnackBar(content: Text(AppStrings.pleaseLogInAgain)),
       );
       return;
     }
 
     final payload = _oneTimeFormKey.currentState?.getTaskPayload();
     if (payload == null) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Please enter task name and due date'),
@@ -64,6 +93,8 @@ class _CreateTaskScreenState extends State<CreateTaskScreen>
       return;
     }
 
+    final taskGroupId = payload['taskGroupId'] as String?;
+
     final result = await _taskService.createTask(
       user.userId,
       name: payload['name'] as String,
@@ -71,11 +102,12 @@ class _CreateTaskScreenState extends State<CreateTaskScreen>
       dueDate: payload['dueDate'] as String,
       time: payload['time'] as String?,
       meta: payload['meta'] as Map<String, dynamic>?,
+      taskGroupId: taskGroupId,
     );
 
     if (!mounted) return;
     switch (result) {
-      case ApiSuccess():
+      case ApiSuccess(data: _):
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Task created')),
         );
@@ -137,6 +169,8 @@ class _CreateTaskScreenState extends State<CreateTaskScreen>
             ),
             child: TabBar(
               controller: _tabController,
+              isScrollable: true,
+              tabAlignment: TabAlignment.start,
               labelColor: const Color(0xFF4F46E5),
               unselectedLabelColor: isDark
                   ? const Color(0xFF64748B)
@@ -162,6 +196,15 @@ class _CreateTaskScreenState extends State<CreateTaskScreen>
                     ),
                   ),
                 ),
+                Tab(
+                  child: Text(
+                    AppStrings.taskGroupsTab,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                    ),
+                  ),
+                ),
               ],
             ),
           ),
@@ -172,6 +215,7 @@ class _CreateTaskScreenState extends State<CreateTaskScreen>
         children: [
           OneTimeTaskForm(
             key: _oneTimeFormKey,
+            taskGroups: _taskGroups,
             onGenerateAISteps: (taskName, taskDescription) async {
               final result = await _taskService.generateSteps(taskName, taskDescription);
               switch (result) {
@@ -183,72 +227,118 @@ class _CreateTaskScreenState extends State<CreateTaskScreen>
             },
           ),
           const RepetitiveTaskForm(),
+          TaskGroupsManageTab(
+            onGroupsChanged: _loadTaskGroups,
+          ),
         ],
       ),
-      bottomNavigationBar: Container(
-        decoration: BoxDecoration(
-          color: isDark
-              ? const Color(0xFF0F172A).withOpacity(0.9)
-              : Colors.white.withOpacity(0.9),
-          border: Border(
-            top: BorderSide(
-              color: isDark
-                  ? const Color(0xFF334155)
-                  : const Color(0xFFE2E8F0),
-            ),
-          ),
-        ),
-        child: BackdropFilter(
-          filter: const ColorFilter.mode(
-            Colors.transparent,
-            BlendMode.multiply,
-          ),
-          child: SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: GestureDetector(
-                onTap: () => _onSaveTapped(),
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF4F46E5),
-                    borderRadius: BorderRadius.circular(12),
-                    boxShadow: [
-                      BoxShadow(
-                        color: const Color(0xFF4F46E5).withOpacity(0.3),
-                        blurRadius: 12,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
+      bottomNavigationBar: _currentTabIndex == 2
+          ? Container(
+              decoration: BoxDecoration(
+                color: isDark
+                    ? const Color(0xFF0F172A).withOpacity(0.9)
+                    : Colors.white.withOpacity(0.9),
+                border: Border(
+                  top: BorderSide(
+                    color: isDark
+                        ? const Color(0xFF334155)
+                        : const Color(0xFFE2E8F0),
                   ),
-                  padding: const EdgeInsets.symmetric(vertical: 16),
+                ),
+              ),
+              child: SafeArea(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
                   child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Icon(
-                        _currentTabIndex == 0
-                            ? Icons.task_alt
-                            : Icons.done_all,
-                        color: Colors.white,
+                        Icons.info_outline,
+                        size: 20,
+                        color: isDark
+                            ? const Color(0xFF64748B)
+                            : const Color(0xFF94A3B8),
                       ),
-                      const SizedBox(width: 8),
-                      Text(
-                        _currentTabIndex == 0
-                            ? AppStrings.saveTask
-                            : AppStrings.saveRoutine,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16,
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          AppStrings.taskGroupsTabFooter,
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: isDark
+                                ? const Color(0xFF94A3B8)
+                                : const Color(0xFF64748B),
+                          ),
                         ),
                       ),
                     ],
                   ),
                 ),
               ),
+            )
+          : Container(
+              decoration: BoxDecoration(
+                color: isDark
+                    ? const Color(0xFF0F172A).withOpacity(0.9)
+                    : Colors.white.withOpacity(0.9),
+                border: Border(
+                  top: BorderSide(
+                    color: isDark
+                        ? const Color(0xFF334155)
+                        : const Color(0xFFE2E8F0),
+                  ),
+                ),
+              ),
+              child: BackdropFilter(
+                filter: const ColorFilter.mode(
+                  Colors.transparent,
+                  BlendMode.multiply,
+                ),
+                child: SafeArea(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: GestureDetector(
+                      onTap: () => _onSaveTapped(),
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF4F46E5),
+                          borderRadius: BorderRadius.circular(12),
+                          boxShadow: [
+                            BoxShadow(
+                              color: const Color(0xFF4F46E5).withOpacity(0.3),
+                              blurRadius: 12,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
+                        ),
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              _currentTabIndex == 0
+                                  ? Icons.task_alt
+                                  : Icons.done_all,
+                              color: Colors.white,
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              _currentTabIndex == 0
+                                  ? AppStrings.saveTask
+                                  : AppStrings.saveRoutine,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
             ),
-          ),
-        ),
-      ),
     );
   }
 }

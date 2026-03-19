@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 import 'package:todone_frontend/core/constants/index.dart';
 import 'package:todone_frontend/core/service/index.dart';
 import 'package:todone_frontend/routes/index.dart';
-import 'package:todone_frontend/core/theme/theme_mode_notifier.dart';
 import 'package:todone_frontend/features/profile/widgets/index.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -37,7 +35,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
       final taskDay = DateTime(d.year, d.month, d.day);
       if (taskDay == today) return 'Today';
       if (taskDay == yesterday) return 'Yesterday';
-      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      const months = [
+        'Jan',
+        'Feb',
+        'Mar',
+        'Apr',
+        'May',
+        'Jun',
+        'Jul',
+        'Aug',
+        'Sep',
+        'Oct',
+        'Nov',
+        'Dec',
+      ];
       return '${months[d.month - 1]} ${d.day}, ${d.year}';
     } catch (_) {
       return dueDate;
@@ -127,15 +138,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
           );
         });
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Name updated')),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text('Name updated')));
         }
       case ApiFailure(message: final message):
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(message)),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text(message)));
         }
     }
   }
@@ -143,7 +154,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final themeNotifier = context.watch<ThemeModeNotifier>();
 
     return Scaffold(
       appBar: AppBar(
@@ -165,263 +175,180 @@ class _ProfileScreenState extends State<ProfileScreen> {
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _error != null
-              ? Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(24),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          _error!,
-                          style: TextStyle(
-                            fontSize: 16,
-                            color: isDark
-                                ? const Color(0xFF94A3B8)
-                                : const Color(0xFF64748B),
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
-                        const SizedBox(height: 16),
-                        TextButton(
-                          onPressed: _loadProfile,
-                          child: const Text('Retry'),
-                        ),
-                      ],
+          ? Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      _error!,
+                      style: TextStyle(
+                        fontSize: 16,
+                        color: isDark
+                            ? const Color(0xFF94A3B8)
+                            : const Color(0xFF64748B),
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 16),
+                    TextButton(
+                      onPressed: _loadProfile,
+                      child: const Text('Retry'),
+                    ),
+                  ],
+                ),
+              ),
+            )
+          : SingleChildScrollView(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  ProfileHeaderWidget(
+                    name: _profile?.user.name.isEmpty == false
+                        ? _profile!.user.name
+                        : 'User',
+                    subtitle: _profile?.user.phoneNumber ?? '',
+                    onEditProfile: _showEditNameDialog,
+                  ),
+                  const SizedBox(height: 24),
+
+                  // Task counts from API
+                  Text(
+                    AppStrings.productivityAnalytics,
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
                     ),
                   ),
-                )
-              : SingleChildScrollView(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                  const SizedBox(height: 12),
+                  Row(
                     children: [
-                      ProfileHeaderWidget(
-                        name: _profile?.user.name.isEmpty == false
-                            ? _profile!.user.name
-                            : 'User',
-                        subtitle: _profile?.user.phoneNumber ?? '',
-                        onEditProfile: _showEditNameDialog,
-                      ),
-                      const SizedBox(height: 24),
-
-                      // Task counts from API
-                      Text(
-                        AppStrings.productivityAnalytics,
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
+                      Expanded(
+                        child: MetricCard(
+                          label: AppStrings.completed,
+                          value: '${_profile?.completedTasksCount ?? 0}',
+                          icon: Icons.task_alt,
+                          iconColor: const Color(0xFF16A34A),
                         ),
                       ),
-                      const SizedBox(height: 12),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: MetricCard(
-                              label: AppStrings.completed,
-                              value: '${_profile?.completedTasksCount ?? 0}',
-                              icon: Icons.task_alt,
-                              iconColor: const Color(0xFF16A34A),
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: MetricCard(
-                              label: 'Pending',
-                              value: '${_profile?.pendingTasksCount ?? 0}',
-                              icon: Icons.schedule,
-                              iconColor: const Color(0xFF4F46E5),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 24),
-
-                      // Task list from profile API
-                      if (_profile?.tasks.isNotEmpty ?? false) ...[
-                        Text(
-                          AppStrings.recentHistory,
-                          style: const TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        ...List.generate(_profile!.tasks.length, (i) {
-                          final task = _profile!.tasks[i];
-                          final dateStr = _formatTaskDate(task.dueDate);
-                          final status = task.status?.toUpperCase() == 'COMPLETED'
-                              ? TaskStatus.done
-                              : TaskStatus.pending;
-                          return Padding(
-                            padding: EdgeInsets.only(
-                              bottom: i < _profile!.tasks.length - 1 ? 8 : 0,
-                            ),
-                            child: GestureDetector(
-                              onTap: () {
-                                Navigator.pushNamed(
-                                  context,
-                                  AppRoutes.taskDetail,
-                                  arguments: TaskDetailArgs(
-                                    taskTitle: task.title,
-                                    taskDescription: task.description,
-                                    category: task.displayLabel,
-                                    dueDate: task.dueDate ?? '',
-                                    reminderTime: task.timeDisplay,
-                                    taskId: task.id,
-                                    userId: _profile!.user.userId,
-                                  ),
-                                ).then((_) => _loadProfile());
-                              },
-                              child: TaskHistoryItem(
-                                title: task.title,
-                                date: dateStr,
-                                status: status,
-                              ),
-                            ),
-                          );
-                        }),
-                        const SizedBox(height: 24),
-                      ],
-
-                      // Appearance (Theme) Section
-                      Text(
-                        AppStrings.appearance,
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: MetricCard(
+                          label: 'Pending',
+                          value: '${_profile?.pendingTasksCount ?? 0}',
+                          icon: Icons.schedule,
+                          iconColor: const Color(0xFF4F46E5),
                         ),
                       ),
-                      const SizedBox(height: 12),
-                      Container(
-                        decoration: BoxDecoration(
-                          color: isDark
-                              ? const Color(0xFF1E293B)
-                              : Colors.white,
-                          border: Border.all(
-                            color: isDark
-                                ? const Color(0xFF334155)
-                                : const Color(0xFFE2E8F0),
-                          ),
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        child: Column(
-                          children: [
-                            _ThemeOptionTile(
-                              label: AppStrings.themeLight,
-                              icon: Icons.light_mode_outlined,
-                              isSelected:
-                                  themeNotifier.themeMode == ThemeMode.light,
-                              onTap: () =>
-                                  themeNotifier.setThemeMode(ThemeMode.light),
-                            ),
-                            Divider(
-                              height: 1,
-                              color: isDark
-                                  ? const Color(0xFF334155)
-                                  : const Color(0xFFE2E8F0),
-                            ),
-                            _ThemeOptionTile(
-                              label: AppStrings.themeDark,
-                              icon: Icons.dark_mode_outlined,
-                              isSelected:
-                                  themeNotifier.themeMode == ThemeMode.dark,
-                              onTap: () =>
-                                  themeNotifier.setThemeMode(ThemeMode.dark),
-                            ),
-                            Divider(
-                              height: 1,
-                              color: isDark
-                                  ? const Color(0xFF334155)
-                                  : const Color(0xFFE2E8F0),
-                            ),
-                            _ThemeOptionTile(
-                              label: AppStrings.themeSystem,
-                              icon: Icons.brightness_auto_outlined,
-                              isSelected: themeNotifier.themeMode ==
-                                  ThemeMode.system,
-                              onTap: () =>
-                                  themeNotifier.setThemeMode(ThemeMode.system),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 32),
-
-                      // Logout Button
-                      SizedBox(
-                        width: double.infinity,
-                        child: OutlinedButton.icon(
-                          onPressed: () async {
-                            await _userStorage.clearUser();
-                            if (!context.mounted) return;
-                            Navigator.of(context).pushNamedAndRemoveUntil(
-                              AppRoutes.auth,
-                              (route) => false,
-                            );
-                          },
-                          icon: const Icon(Icons.logout),
-                          label: Text(AppStrings.logout),
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: const Color(0xFFDC2626),
-                            side: const BorderSide(color: Color(0xFFDC2626)),
-                            padding: const EdgeInsets.symmetric(vertical: 14),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 24),
                     ],
                   ),
-                ),
-    );
-  }
-}
+                  const SizedBox(height: 24),
 
-class _ThemeOptionTile extends StatelessWidget {
-  const _ThemeOptionTile({
-    required this.label,
-    required this.icon,
-    required this.isSelected,
-    required this.onTap,
-  });
+                  // Task list from profile API
+                  if (_profile?.tasks.isNotEmpty ?? false) ...[
+                    Text(
+                      AppStrings.recentHistory,
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Builder(
+                      builder: (context) {
+                        final tasks = _profile!.tasks;
+                        final last3Start = tasks.length > 3
+                            ? tasks.length - 3
+                            : 0;
+                        final recentTasks = tasks.sublist(last3Start);
+                        final olderTasks = tasks.sublist(0, last3Start);
 
-  final String label;
-  final IconData icon;
-  final bool isSelected;
-  final VoidCallback onTap;
+                        List<Widget> buildHistoryItems(List<TaskModel> list) {
+                          return List.generate(list.length, (i) {
+                            final task = list[i];
+                            final dateStr = _formatTaskDate(task.dueDate);
+                            final status =
+                                task.status?.toUpperCase() == 'COMPLETED'
+                                ? TaskStatus.done
+                                : TaskStatus.pending;
+                            final isLastItem = i == list.length - 1;
 
-  @override
-  Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+                            return Padding(
+                              padding: EdgeInsets.only(
+                                bottom: isLastItem ? 0 : 8,
+                              ),
+                              child: GestureDetector(
+                                onTap: () {
+                                  Navigator.pushNamed(
+                                    context,
+                                    AppRoutes.taskDetail,
+                                    arguments: TaskDetailArgs(
+                                      taskTitle: task.title,
+                                      taskDescription: task.description,
+                                      category: task.displayLabel,
+                                      dueDate: task.dueDate ?? '',
+                                      reminderTime: task.timeDisplay,
+                                      taskId: task.id,
+                                      userId: _profile!.user.userId,
+                                    ),
+                                  ).then((_) => _loadProfile());
+                                },
+                                child: TaskHistoryItem(
+                                  title: task.title,
+                                  date: dateStr,
+                                  status: status,
+                                ),
+                              ),
+                            );
+                          });
+                        }
 
-    return ListTile(
-      leading: Icon(
-        icon,
-        size: 22,
-        color: isSelected
-            ? const Color(0xFF4F46E5)
-            : (isDark
-                ? const Color(0xFF94A3B8)
-                : const Color(0xFF64748B)),
-      ),
-      title: Text(
-        label,
-        style: TextStyle(
-          fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-          color: isSelected
-              ? const Color(0xFF4F46E5)
-              : (isDark
-                  ? const Color(0xFFE2E8F0)
-                  : const Color(0xFF334155)),
-        ),
-      ),
-      trailing: isSelected
-          ? const Icon(Icons.check_circle,
-              color: Color(0xFF4F46E5), size: 22)
-          : null,
-      onTap: onTap,
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            ...buildHistoryItems(recentTasks),
+                            if (olderTasks.isNotEmpty)
+                              ExpansionTile(
+                                title: Text(AppStrings.viewAll),
+                                children: buildHistoryItems(olderTasks),
+                              ),
+                          ],
+                        );
+                      },
+                    ),
+                    const SizedBox(height: 24),
+                  ],
+
+                  // Logout Button
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: () async {
+                        await _userStorage.clearUser();
+                        if (!context.mounted) return;
+                        Navigator.of(context).pushNamedAndRemoveUntil(
+                          AppRoutes.auth,
+                          (route) => false,
+                        );
+                      },
+                      icon: const Icon(Icons.logout),
+                      label: Text(AppStrings.logout),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: const Color(0xFFDC2626),
+                        side: const BorderSide(color: Color(0xFFDC2626)),
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                ],
+              ),
+            ),
     );
   }
 }

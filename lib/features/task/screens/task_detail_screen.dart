@@ -29,6 +29,7 @@ class TaskDetailScreen extends StatefulWidget {
 
 class _TaskDetailScreenState extends State<TaskDetailScreen> {
   final TaskService _taskService = TaskService();
+  final TaskGroupService _taskGroupService = TaskGroupService();
   bool isTaskCompleted = false;
 
   TaskModel? _task;
@@ -36,9 +37,11 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
   String? _error;
   int? _togglingStepIndex;
   bool _markingComplete = false;
+  List<TaskGroupModel> _taskGroups = [];
 
   // Edit mode state
   bool _isEditing = false;
+  String? _editTaskGroupId;
   final TextEditingController _titleController = TextEditingController();
   final TextEditingController _descriptionController = TextEditingController();
   final TextEditingController _timeController = TextEditingController();
@@ -49,10 +52,26 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
   @override
   void initState() {
     super.initState();
+    if (widget.userId != null) {
+      _loadTaskGroups();
+    }
     if (widget.taskId != null) {
       _fetchTask();
     } else {
       setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _loadTaskGroups() async {
+    final userId = widget.userId;
+    if (userId == null) return;
+    final result = await _taskGroupService.getTaskGroups(userId);
+    if (!mounted) return;
+    switch (result) {
+      case ApiSuccess(data: final list):
+        setState(() => _taskGroups = list);
+      case ApiFailure():
+        break;
     }
   }
 
@@ -255,6 +274,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     }
 
     setState(() {
+      _editTaskGroupId = task.taskGroupId;
       _isEditing = true;
     });
   }
@@ -266,9 +286,20 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     _stepControllers.clear();
     _stepCompleted.clear();
     setState(() {
+      _editTaskGroupId = null;
       _isEditing = false;
       _savingEdits = false;
     });
+  }
+
+  String? _resolvedGroupName(String? groupId) {
+    if (groupId == null || groupId.isEmpty) return null;
+    for (final g in _taskGroups) {
+      if (g.taskGroupId == groupId) {
+        return g.name.isNotEmpty ? g.name : g.taskGroupId;
+      }
+    }
+    return AppStrings.unknownTaskGroup;
   }
 
   void _addStepField() {
@@ -329,6 +360,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
       status: task.status,
       authorId: userId,
       time: timeStr.isNotEmpty ? timeStr : null,
+      taskGroupId: _editTaskGroupId,
     );
 
     if (!mounted) return;
@@ -342,8 +374,10 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
         setState(() {
           _task = updatedTask;
           isTaskCompleted = updatedTask.status == 'COMPLETED';
+          _editTaskGroupId = null;
           _isEditing = false;
         });
+        _loadTaskGroups();
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Task updated')),
         );
@@ -520,9 +554,89 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                                             ? const Color(0xFFCBD5E1)
                                             : const Color(0xFF475569),
                                         height: 1.5,
+                                    ),
+                                  ),
+                              const SizedBox(height: 16),
+
+                              // Task group (view or edit)
+                              if (_isEditing) ...[
+                                Text(
+                                  AppStrings.taskGroupLabel,
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold,
+                                    color: isDark
+                                        ? const Color(0xFF94A3B8)
+                                        : const Color(0xFF64748B),
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                DropdownButtonFormField<String?>(
+                                  value: _editTaskGroupId,
+                                  isExpanded: true,
+                                  decoration: InputDecoration(
+                                    isDense: true,
+                                    filled: true,
+                                    fillColor: isDark
+                                        ? const Color(0xFF1E293B)
+                                        : const Color(0xFFF8FAFC),
+                                    border: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    contentPadding: const EdgeInsets.symmetric(
+                                      horizontal: 12,
+                                      vertical: 8,
+                                    ),
+                                  ),
+                                  items: [
+                                    DropdownMenuItem<String?>(
+                                      value: null,
+                                      child: Text(AppStrings.taskGroupNone),
+                                    ),
+                                    ..._taskGroups.map(
+                                      (g) => DropdownMenuItem<String?>(
+                                        value: g.taskGroupId,
+                                        child: Text(
+                                          g.name.isNotEmpty
+                                              ? g.name
+                                              : g.taskGroupId,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
                                       ),
                                     ),
-                              const SizedBox(height: 16),
+                                  ],
+                                  onChanged: (v) =>
+                                      setState(() => _editTaskGroupId = v),
+                                ),
+                                const SizedBox(height: 16),
+                              ] else if (_task?.taskGroupId != null &&
+                                  _task!.taskGroupId!.isNotEmpty) ...[
+                                Row(
+                                  children: [
+                                    Icon(
+                                      Icons.folder_outlined,
+                                      size: 16,
+                                      color: isDark
+                                          ? const Color(0xFF94A3B8)
+                                          : const Color(0xFF64748B),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: Text(
+                                        '${AppStrings.taskGroupLabel}: ${_resolvedGroupName(_task!.taskGroupId) ?? _task!.taskGroupId}',
+                                        style: TextStyle(
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w500,
+                                          color: isDark
+                                              ? const Color(0xFFCBD5E1)
+                                              : const Color(0xFF475569),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 16),
+                              ],
 
                               // Meta Info (Due Date & Reminder)
                               Container(
